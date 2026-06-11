@@ -32,7 +32,7 @@ export default function ComingSoonPage() {
       <div className="max-w-lg w-full text-center">
         <div className="flex justify-center mb-8">
           <Image
-            src="/doorstep/doorstep-laundry-logo-v3.svg"
+            src="/doorstep/DL_logo_horizontal_RGB-cropped.svg"
             alt="Doorstep Laundry – laundry pickup and delivery in Las Cruces, NM"
             width={240}
             height={96}

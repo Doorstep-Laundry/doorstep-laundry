@@ -37,7 +37,7 @@ export default async function PricingPage() {
               aria-label="Doorstep Laundry – Laundry service Las Cruces NM"
             >
               <Image
-                src="/doorstep/doorstep-logo-icon.svg"
+                src="/doorstep/DL_icon_RGB.svg"
                 alt=""
                 width={36}
                 height={36}

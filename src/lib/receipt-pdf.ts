@@ -61,18 +61,19 @@ const LOGO_MAX_WIDTH = 240;
 const RECEIPT_V3_LOGO_PNG_PATH = "/doorstep/doorstep-laundry-logo-v3.png";
 
 /** Icon-only fallback when no PNG exists for smaller wordmark SVGs. */
-const RECEIPT_LOGO_ICON_PATH = "/doorstep/doorstep-logo-icon.svg";
+const RECEIPT_LOGO_ICON_PATH = "/doorstep/DL_icon_RGB.svg";
 
 /** Full v3 logo: use PNG instead of SVG on receipts. */
 const SVG_LOGO_MAP_TO_PNG_SUFFIXES = ["doorstep-laundry-logo-v3.svg"] as const;
 
 /**
- * Other SVGs that embed typography — Sharp/librsvg often has no glyphs.
+ * SVGs that embed typography — Sharp/librsvg often has no glyphs.
  * Use RECEIPT_LOGO_ICON_PATH and draw company name with standard PDF fonts.
  */
 const SVG_LOGO_USE_ICON_ONLY_SUFFIXES = [
   "doorstep-logo-wordmark.svg",
   "doorstep-logo-subtext.svg",
+  "DL_logo_horizontal_RGB-cropped.svg",
 ] as const;
 
 function pathnameFromLogoUrl(logoUrl: string): string {

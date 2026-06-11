@@ -79,7 +79,7 @@ export function AppHeader() {
           aria-label="Doorstep Laundry – Home"
         >
           <Image
-            src="/doorstep/doorstep-logo-icon.svg"
+            src="/doorstep/DL_icon_RGB.svg"
             alt=""
             width={36}
             height={36}

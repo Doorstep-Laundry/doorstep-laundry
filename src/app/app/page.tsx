@@ -45,7 +45,7 @@ export default async function AppHomePage() {
               className="flex items-center gap-2 text-fern-900 hover:opacity-90 transition-opacity"
               aria-label="Doorstep Laundry – Laundry service Las Cruces NM"
             >
-              <Image src="/doorstep/doorstep-logo-icon.svg" alt="" width={36} height={36} className="h-9 w-auto" unoptimized />
+              <Image src="/doorstep/DL_icon_RGB.svg" alt="" width={36} height={36} className="h-9 w-auto" unoptimized />
               <Image src="/doorstep/doorstep-logo-wordmark.svg" alt="Doorstep Laundry Las Cruces" width={140} height={28} className="h-7 w-auto hidden sm:block" unoptimized />
               <span className="text-lg font-semibold text-fern-800 sm:hidden">Doorstep Laundry</span>
             </Link>
@@ -77,11 +77,11 @@ export default async function AppHomePage() {
         <section className="mx-auto max-w-5xl px-4 py-24 text-center">
           <div className="flex justify-center mb-10">
             <Image
-              src="/doorstep/doorstep-laundry-logo-v3.svg"
+              src="/doorstep/DL_logo_horizontal_RGB-cropped.svg"
               alt="Doorstep Laundry – laundry pickup and delivery in Las Cruces, NM"
-              width={280}
-              height={112}
-              className="h-24 w-auto sm:h-28"
+              width={898}
+              height={284}
+              className="w-60 h-auto sm:w-80 md:w-[400px]"
               unoptimized
             />
           </div>
