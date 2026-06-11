@@ -16,6 +16,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Doorstep Laundry Service",
   description: "Doorstep laundry pickup and delivery",
+  icons: {
+    icon: "/doorstep/DL_icon_RGB.svg",
+  },
 };
 
 export default function RootLayout({
