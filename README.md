@@ -50,7 +50,7 @@ Next.js app for a doorstep laundry pickup and delivery service. Customers can si
    In a separate terminal, forward Stripe events to your local server:
 
    ```bash
-   stripe listen --forward-to localhost:3000/api/webhooks/stripe
+   stripe listen --forward-to localhost:3000/api/webhooks/stripe --api-key <sk_test...>
    ```
 
    Copy the `whsec_...` secret it prints and set it as `STRIPE_WEBHOOK_SECRET` in your `.env`.
