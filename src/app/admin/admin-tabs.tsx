@@ -11,6 +11,7 @@ import { AdminCompanyInfo } from "./admin-company-info";
 import { AdminBookingAvailability } from "./admin-booking-availability";
 import { AdminPastDueGracePeriod } from "./admin-past-due-grace-period";
 import { DebugTools } from "@/app/debug/debug-tools";
+import { AdminAnalyticsCustomerTypeChart } from "./admin-analytics-customer-type-chart";
 
 type Tab = "operations" | "analytics" | "debug";
 
@@ -135,8 +136,8 @@ export function AdminTabs() {
       )}
 
       {activeTab === "analytics" && (
-        <div className="flex items-center justify-center py-24 text-fern-400 text-sm">
-          Analytics coming soon.
+        <div className="space-y-8">
+          <AdminAnalyticsCustomerTypeChart />
         </div>
       )}
 
