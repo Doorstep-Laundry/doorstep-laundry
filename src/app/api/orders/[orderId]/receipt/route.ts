@@ -73,6 +73,7 @@ export async function GET(
         loadNumber: l.loadNumber,
         weightLbs: l.weightLbs,
         bulkyItems: l.bulkyItems ?? null,
+        creditedLoad: l.creditedLoad,
         hotWater: l.hotWater,
         bleach: l.bleach,
         hypoallergenic: l.hypoallergenic,

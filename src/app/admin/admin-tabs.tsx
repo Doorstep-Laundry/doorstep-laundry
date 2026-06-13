@@ -10,6 +10,7 @@ import { AdminGrtPercent } from "./admin-grt-percent";
 import { AdminCompanyInfo } from "./admin-company-info";
 import { AdminBookingAvailability } from "./admin-booking-availability";
 import { AdminPastDueGracePeriod } from "./admin-past-due-grace-period";
+import { AdminPromoCodes } from "./admin-promo-codes";
 import { DebugTools } from "@/app/debug/debug-tools";
 import { AdminAnalyticsCustomerTypeChart } from "./admin-analytics-customer-type-chart";
 import { AdminAnalyticsRevenueByMonthChart } from "./admin-analytics-revenue-by-month-chart";
@@ -126,6 +127,16 @@ export function AdminTabs() {
               Number of days after the scheduled delivery date before an unpaid order is considered past due. Customers with a past due balance cannot schedule a new pickup until they pay. Default is 3 days.
             </p>
             <AdminPastDueGracePeriod />
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold text-fern-900 mb-2">
+              Promo codes
+            </h2>
+            <p className="text-sm text-fern-600 mb-6">
+              Generate single-use promo codes that customers redeem on their dashboard to receive free wash loads. Each code is redeemable once per customer.
+            </p>
+            <AdminPromoCodes />
           </section>
 
           <section>

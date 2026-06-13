@@ -5,6 +5,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { AppHeader } from "@/components/app-header";
 import { DashboardOrderList } from "./dashboard-order-list";
+import { PromoCodeSection } from "./promo-code-section";
 import type { OrderListItemOrder } from "./order-list-item";
 
 export default async function DashboardPage() {
@@ -14,20 +15,25 @@ export default async function DashboardPage() {
   const role = (session.user as { role: string }).role;
   if (role === "staff" || role === "admin") redirect("/wash");
 
-  const orders = await prisma.order.findMany({
-    where: { customerId: userId },
-    orderBy: { createdAt: "desc" },
-    take: 50,
-    include: {
-      orderLoads: { orderBy: { loadNumber: "asc" }, select: { weightLbs: true } },
-    },
-  });
+  const [orders, customer] = await Promise.all([
+    prisma.order.findMany({
+      where: { customerId: userId },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+      include: {
+        orderLoads: { orderBy: { loadNumber: "asc" }, select: { weightLbs: true } },
+      },
+    }),
+    prisma.user.findUnique({ where: { id: userId }, select: { creditedLoads: true } }),
+  ]);
 
   const orderList = orders as OrderListItemOrder[];
+  const creditedLoads = customer?.creditedLoads ?? 0;
 
   return (
     <div className="min-h-screen bg-fern-50">
       <AppHeader />
+      <PromoCodeSection initialCreditedLoads={creditedLoads} />
       <main className="mx-auto max-w-4xl px-4 py-8">
         <h1 className="text-xl font-semibold text-fern-900 mb-6">
           My orders

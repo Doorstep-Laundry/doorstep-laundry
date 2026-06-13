@@ -62,6 +62,7 @@ model User {
   customerType             CustomerType  @default(not_set) @map("customer_type")
   defaultLoadOptions        Json?     @map("default_load_options")
   emailVerifiedAt          DateTime? @map("email_verified_at")
+  creditedLoads            Int       @default(0) @map("credited_loads")
   createdAt                DateTime  @default(now()) @map("created_at")
   updatedAt                DateTime  @updatedAt @map("updated_at")
 
@@ -73,6 +74,7 @@ model User {
   orderStatusChanges        OrderStatusHistory[]
   passwordResetTokens       PasswordResetToken[]
   emailVerificationTokens   EmailVerificationToken[]
+  promoCodeRedemptions      PromoCodeRedemption[]
 }
 
 model PasswordResetToken {
@@ -164,6 +166,7 @@ model OrderLoad {
   scentFree      Boolean    @default(false) @map("scent_free")
   coldWaterOnly  Boolean    @default(false) @map("cold_water_only")
   bulkyItems     Json?      @map("bulky_items")
+  creditedLoad   Boolean    @default(false) @map("credited_load")
   createdAt      DateTime   @default(now()) @map("created_at")
   updatedAt      DateTime   @updatedAt @map("updated_at")
 
@@ -245,4 +248,27 @@ model DriverRun {
 
   @@index([driverId])
   @@index([driverId, startedAt])
+}
+
+model PromoCode {
+  id            String               @id @default(cuid())
+  code          String               @unique
+  numberOfLoads Int                  @map("number_of_loads")
+  createdAt     DateTime             @default(now()) @map("created_at")
+  updatedAt     DateTime             @updatedAt @map("updated_at")
+
+  redemptions PromoCodeRedemption[]
+}
+
+model PromoCodeRedemption {
+  id          String    @id @default(cuid())
+  promoCodeId String    @map("promo_code_id")
+  userId      String    @map("user_id")
+  redeemedAt  DateTime  @default(now()) @map("redeemed_at")
+
+  promoCode PromoCode @relation(fields: [promoCodeId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([promoCodeId, userId])
+  @@index([userId])
 }

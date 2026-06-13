@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { AppHeader } from "@/components/app-header";
+import { CreditedLoadsBanner } from "@/components/credited-loads-banner";
 import { getBookingAvailability } from "@/lib/settings";
 import { BookForm } from "./book-form";
 
@@ -20,7 +21,7 @@ export default async function BookPage() {
     }),
     prisma.user.findUnique({
       where: { id: userId },
-      select: { defaultLoadOptions: true },
+      select: { defaultLoadOptions: true, creditedLoads: true },
     }),
   ]);
 
@@ -29,11 +30,13 @@ export default async function BookPage() {
       ? (user.defaultLoadOptions as Record<string, boolean>)
       : null;
 
+  const creditedLoads = user?.creditedLoads ?? 0;
   const bookingAvailability = await getBookingAvailability();
 
   return (
     <div className="min-h-screen bg-fern-50">
       <AppHeader />
+      <CreditedLoadsBanner creditedLoads={creditedLoads} />
       <main className="mx-auto max-w-4xl px-4 py-8">
         <h1 className="text-xl font-semibold text-fern-900 mb-6">
           Book a pickup

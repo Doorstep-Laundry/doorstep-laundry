@@ -13,6 +13,7 @@ const CUSTOMER_SELECT = {
   customPricePerPoundCents: true,
   nmgrtExempt: true,
   customerType: true,
+  creditedLoads: true,
 } as const;
 
 /** GET: Customer detail for admin (pricing, orders count). */
@@ -62,7 +63,12 @@ export async function PATCH(
   }
 
   const { userId } = await params;
-  let body: { customPricePerPoundCents?: number | null; nmgrtExempt?: boolean; customerType?: string };
+  let body: {
+    customPricePerPoundCents?: number | null;
+    nmgrtExempt?: boolean;
+    customerType?: string;
+    creditedLoads?: number;
+  };
   try {
     body = await request.json();
   } catch {
@@ -73,6 +79,7 @@ export async function PATCH(
     customPricePerPoundCents?: number | null;
     nmgrtExempt?: boolean;
     customerType?: CustomerType;
+    creditedLoads?: number;
   } = {};
 
   if (body.customPricePerPoundCents !== undefined) {
@@ -90,6 +97,9 @@ export async function PATCH(
   }
   if (typeof body.customerType === "string" && CUSTOMER_TYPE_VALUES.has(body.customerType)) {
     data.customerType = body.customerType as CustomerType;
+  }
+  if (typeof body.creditedLoads === "number" && body.creditedLoads >= 0) {
+    data.creditedLoads = Math.floor(body.creditedLoads);
   }
 
   if (Object.keys(data).length === 0) {

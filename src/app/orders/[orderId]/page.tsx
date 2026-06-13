@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import { getTimeSlotById } from "@/lib/slots";
 import { getEnabledLoadOptionLabels } from "@/lib/load-options";
 import { AppHeader } from "@/components/app-header";
+import { CreditedLoadsBanner } from "@/components/credited-loads-banner";
 import { DeleteDraftOrderButton } from "@/components/delete-draft-order-button";
 import { PayButton } from "./pay-button";
 import { ResendPaymentButton } from "./resend-payment-button";
@@ -34,23 +35,27 @@ export default async function OrderDetailPage({
   const userId = (session.user as { id: string }).id;
   const { orderId } = await params;
 
-  const order = await prisma.order.findUnique({
-    where: { id: orderId },
-    include: {
-      pickupAddress: true,
-      deliveryAddress: true,
-      orderLoads: { orderBy: { loadNumber: "asc" } },
-      customer: { select: { customPricePerPoundCents: true, nmgrtExempt: true } },
-      statusHistory: {
-        orderBy: { createdAt: "desc" },
-        include: { changedBy: { select: { name: true, email: true } } },
+  const [order, customer] = await Promise.all([
+    prisma.order.findUnique({
+      where: { id: orderId },
+      include: {
+        pickupAddress: true,
+        deliveryAddress: true,
+        orderLoads: { orderBy: { loadNumber: "asc" } },
+        customer: { select: { customPricePerPoundCents: true, nmgrtExempt: true } },
+        statusHistory: {
+          orderBy: { createdAt: "desc" },
+          include: { changedBy: { select: { name: true, email: true } } },
+        },
       },
-    },
-  });
+    }),
+    prisma.user.findUnique({ where: { id: userId }, select: { creditedLoads: true, role: true } }),
+  ]);
   if (!order) notFound();
   const role = (session.user as { role?: string }).role;
   const canView = order.customerId === userId || role === "staff" || role === "admin";
   if (!canView) redirect("/dashboard");
+  const creditedLoads = role === "customer" ? (customer?.creditedLoads ?? 0) : 0;
 
   let displayTotalCents = order.totalCents;
   if (order.status === "waiting_for_payment" && order.orderLoads?.length) {
@@ -78,6 +83,7 @@ export default async function OrderDetailPage({
   return (
     <div className="min-h-screen bg-fern-50">
       <AppHeader />
+      <CreditedLoadsBanner creditedLoads={creditedLoads} />
       <main className="mx-auto max-w-4xl px-4 py-8 space-y-6">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-xl font-semibold text-fern-900 font-mono">

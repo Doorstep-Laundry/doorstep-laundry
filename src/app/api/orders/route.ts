@@ -282,6 +282,30 @@ export async function POST(request: Request) {
       });
     }
 
+    // Consume credited loads if customer has any
+    const customerForCredits = await prisma.user.findUnique({
+      where: { id: effectiveCustomerId },
+      select: { creditedLoads: true },
+    });
+    if (customerForCredits && customerForCredits.creditedLoads > 0) {
+      const n = Math.min(customerForCredits.creditedLoads, loads);
+      const loadsToCredit = await prisma.orderLoad.findMany({
+        where: { orderId: order.id },
+        orderBy: { loadNumber: "asc" },
+        take: n,
+        select: { id: true },
+      });
+      await prisma.$transaction([
+        ...loadsToCredit.map((l) =>
+          prisma.orderLoad.update({ where: { id: l.id }, data: { creditedLoad: true } })
+        ),
+        prisma.user.update({
+          where: { id: effectiveCustomerId },
+          data: { creditedLoads: { decrement: n } },
+        }),
+      ]);
+    }
+
     await prisma.orderStatusHistory.create({
       data: {
         orderId: order.id,

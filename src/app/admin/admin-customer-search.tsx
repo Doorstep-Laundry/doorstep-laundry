@@ -40,6 +40,7 @@ type CustomerDetail = CustomerSearchHit & {
   phone: string | null;
   defaultLoadOptions: unknown;
   orderCount: number;
+  creditedLoads: number;
 };
 
 const inputClass =
@@ -55,6 +56,7 @@ export function AdminCustomerSearch() {
   const [customRate, setCustomRate] = useState<string>("");
   const [nmgrtExempt, setNmgrtExempt] = useState(false);
   const [customerType, setCustomerType] = useState<CustomerType>("not_set");
+  const [creditedLoads, setCreditedLoads] = useState<string>("0");
   const [message, setMessage] = useState("");
 
   const runSearch = useCallback(() => {
@@ -97,6 +99,7 @@ export function AdminCustomerSearch() {
         );
         setNmgrtExempt(Boolean(data.nmgrtExempt));
         setCustomerType((data.customerType as CustomerType) ?? "not_set");
+        setCreditedLoads(String(data.creditedLoads ?? 0));
         setLoadingDetail(false);
       })
       .catch(() => {
@@ -114,6 +117,7 @@ export function AdminCustomerSearch() {
         customPricePerPoundCents?: number | null;
         nmgrtExempt?: boolean;
         customerType?: CustomerType;
+        creditedLoads?: number;
       } = {
         nmgrtExempt,
         customerType,
@@ -125,6 +129,10 @@ export function AdminCustomerSearch() {
         if (!Number.isNaN(n) && n >= 0) {
           body.customPricePerPoundCents = n;
         }
+      }
+      const creditsVal = parseInt(creditedLoads, 10);
+      if (!Number.isNaN(creditsVal) && creditsVal >= 0) {
+        body.creditedLoads = creditsVal;
       }
       const res = await fetch(`/api/admin/customers/${selected.id}`, {
         method: "PATCH",
@@ -144,6 +152,7 @@ export function AdminCustomerSearch() {
               customPricePerPoundCents: data.customPricePerPoundCents ?? null,
               nmgrtExempt: data.nmgrtExempt ?? false,
               customerType: data.customerType ?? "not_set",
+              creditedLoads: data.creditedLoads ?? 0,
             }
           : null
       );
@@ -277,6 +286,22 @@ export function AdminCustomerSearch() {
               />
               <p className="text-xs text-fern-500 mt-0.5">
                 Leave blank to use global default. Overrides base $/lb for this customer.
+              </p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-fern-700 mb-1">
+                Credited loads
+              </label>
+              <input
+                type="number"
+                min={0}
+                step={1}
+                value={creditedLoads}
+                onChange={(e) => setCreditedLoads(e.target.value)}
+                className={inputClass}
+              />
+              <p className="text-xs text-fern-500 mt-0.5">
+                Free wash loads granted to this customer. Consumed at booking.
               </p>
             </div>
             <div className="flex items-center gap-2">

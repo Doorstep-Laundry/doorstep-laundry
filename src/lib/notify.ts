@@ -392,6 +392,7 @@ export async function sendOrderNotification(
                 loadNumber: number;
                 weightLbs: number | null;
                 bulkyItems?: unknown;
+                creditedLoad?: boolean;
                 hotWater?: boolean;
                 bleach?: boolean;
                 hypoallergenic?: boolean;
@@ -402,6 +403,7 @@ export async function sendOrderNotification(
                 loadNumber: l.loadNumber,
                 weightLbs: l.weightLbs,
                 bulkyItems: l.bulkyItems ?? null,
+                creditedLoad: l.creditedLoad,
                 hotWater: l.hotWater,
                 bleach: l.bleach,
                 hypoallergenic: l.hypoallergenic,

@@ -29,6 +29,7 @@ export type ReceiptOrder = {
     loadNumber: number;
     weightLbs: number | null;
     bulkyItems?: BulkyItems | unknown | null;
+    creditedLoad?: boolean;
   } & Partial<LoadOptionsInput>>;
 };
 
@@ -229,11 +230,11 @@ export async function generateReceiptPdf(
   options: ReceiptOptions
 ): Promise<Buffer> {
   const { pricePerPoundCents, grtPercent, nmgrtExempt = false, company } = options;
-  const totalLbs = order.orderLoads.reduce(
-    (sum, l) => sum + (Number(l.weightLbs) || 0),
-    0
-  );
-  // Use stored total to get breakdown (matches what was actually charged)
+  const loads = order.orderLoads;
+  const creditedLoads = loads.filter((l) => l.creditedLoad);
+  const nonCreditedLoads = loads.filter((l) => !l.creditedLoad);
+
+  // Use stored total (net of credits) to derive breakdown
   const { computeSubtotalAndTaxCents } = await import("./order-total");
   const { subtotalCents, taxCents } = computeSubtotalAndTaxCents(
     order.totalCents,
@@ -243,27 +244,46 @@ export async function generateReceiptPdf(
   const totalCents = order.totalCents;
   const unitPricePerLbDollars = pricePerPoundCents / 100;
   const washDescription = "Wash and fold (by weight)";
-  const loads = order.orderLoads;
-  const bulkySubtotalCents = loads.reduce(
-    (s, l) =>
-      s +
-      computeBulkyItemsCents(
-        l.bulkyItems as BulkyItems | null,
-        pricePerPoundCents
-      ),
+
+  // For non-credited loads: allocate the paid subtotal proportionally
+  const nonCreditedBulkyCents = nonCreditedLoads.reduce(
+    (s, l) => s + computeBulkyItemsCents(l.bulkyItems as BulkyItems | null, pricePerPoundCents),
     0
   );
-  const weightSubtotalFromLoads = Math.round(totalLbs * pricePerPoundCents);
-  let weightTargetCents = weightSubtotalFromLoads;
-  const combinedFromLoads = weightSubtotalFromLoads + bulkySubtotalCents;
-  if (combinedFromLoads !== subtotalCents) {
-    weightTargetCents = subtotalCents - bulkySubtotalCents;
+  const nonCreditedWeightLbs = nonCreditedLoads.reduce((s, l) => s + (Number(l.weightLbs) || 0), 0);
+  const nonCreditedWeightFromLbs = Math.round(nonCreditedWeightLbs * pricePerPoundCents);
+  let weightTargetCents = nonCreditedWeightFromLbs;
+  if (nonCreditedWeightFromLbs + nonCreditedBulkyCents !== subtotalCents) {
+    weightTargetCents = subtotalCents - nonCreditedBulkyCents;
   }
-  const weightCentsPerLoad = allocateWeightCentsPerLoad(
-    loads,
+  const nonCreditedWeightCentsPerLoad = allocateWeightCentsPerLoad(
+    nonCreditedLoads,
     pricePerPoundCents,
     weightTargetCents
   );
+
+  // For credited loads: compute full price directly (shown then immediately offset)
+  const creditedWeightCentsPerLoad = creditedLoads.map((l) =>
+    Math.round((Number(l.weightLbs) || 0) * pricePerPoundCents)
+  );
+  const totalCreditedCents = creditedLoads.reduce((s, l, i) => {
+    const bulky = computeBulkyItemsCents(l.bulkyItems as BulkyItems | null, pricePerPoundCents);
+    return s + (creditedWeightCentsPerLoad[i] ?? 0) + bulky;
+  }, 0);
+
+  // Build a unified per-load cost map keyed by load index in the original array
+  const weightCentsPerLoad: number[] = [];
+  {
+    let ncIdx = 0;
+    let cIdx = 0;
+    for (const l of loads) {
+      if (l.creditedLoad) {
+        weightCentsPerLoad.push(creditedWeightCentsPerLoad[cIdx++] ?? 0);
+      } else {
+        weightCentsPerLoad.push(nonCreditedWeightCentsPerLoad[ncIdx++] ?? 0);
+      }
+    }
+  }
 
   const doc = await PDFDocument.create();
   const font = await doc.embedFont(StandardFonts.Helvetica);
@@ -394,6 +414,7 @@ export async function generateReceiptPdf(
   page.drawText("TOTAL", { x: totalColRight - fontBold.widthOfTextAtSize("TOTAL", FONT_SIZE_SMALL), y, size: FONT_SIZE_SMALL, font: fontBold, color: LABEL_GRAY });
   y -= TABLE_HEADER_HEIGHT;
 
+  const GREEN = rgb(0.05, 0.55, 0.1);
   for (let idx = 0; idx < loads.length; idx++) {
     const load = loads[idx];
     const lbs = Number(load.weightLbs) || 0;
@@ -433,11 +454,27 @@ export async function generateReceiptPdf(
       });
       y -= ROW_HEIGHT;
     }
+    // If this load is credited, show a 100% discount line immediately after
+    if (load.creditedLoad) {
+      const loadFullCents = loadWeightCents +
+        computeBulkyItemsCents(load.bulkyItems as BulkyItems | null, pricePerPoundCents);
+      const creditLabel = "Free load credit (100% off)";
+      const creditAmtText = `-$ ${formatDollars(loadFullCents)}`;
+      page.drawText(creditLabel, { x: colDesc, y, size: FONT_SIZE_SMALL, font: font, color: GREEN });
+      page.drawText(creditAmtText, {
+        x: totalColRight - font.widthOfTextAtSize(creditAmtText, FONT_SIZE_SMALL),
+        y,
+        size: FONT_SIZE_SMALL,
+        font: font,
+        color: GREEN,
+      });
+      y -= ROW_HEIGHT;
+    }
   }
 
   y -= LINE_HEIGHT;
 
-  // ----- Summary: Subtotal, NMGRT (if not exempt), Total -----
+  // ----- Summary: Subtotal, Load credits (if any), NMGRT (if not exempt), Total -----
   const sumLabelX = width - MARGIN - 130;
   const sumSubtotalText = `$ ${formatDollars(subtotalCents)}`;
   const sumTaxText = `$ ${formatDollars(taxCents)}`;
@@ -445,6 +482,14 @@ export async function generateReceiptPdf(
   page.drawText("SUBTOTAL", { x: sumLabelX, y, size: FONT_SIZE_SMALL, font: font, color: LABEL_GRAY });
   page.drawText(sumSubtotalText, { x: totalColRight - font.widthOfTextAtSize(sumSubtotalText, FONT_SIZE_SMALL), y, size: FONT_SIZE_SMALL, font: font, color: BLACK });
   y -= ROW_HEIGHT;
+
+  if (totalCreditedCents > 0) {
+    const creditTotalText = `-$ ${formatDollars(totalCreditedCents)}`;
+    const creditLoadWord = creditedLoads.length === 1 ? "load" : "loads";
+    page.drawText(`LOAD CREDITS (${creditedLoads.length} ${creditLoadWord})`, { x: sumLabelX, y, size: FONT_SIZE_SMALL, font: font, color: GREEN });
+    page.drawText(creditTotalText, { x: totalColRight - font.widthOfTextAtSize(creditTotalText, FONT_SIZE_SMALL), y, size: FONT_SIZE_SMALL, font: font, color: GREEN });
+    y -= ROW_HEIGHT;
+  }
 
   if (!nmgrtExempt) {
     page.drawText(`NMGRT (${grtPercent}%)`, { x: sumLabelX, y, size: FONT_SIZE_SMALL, font: font, color: LABEL_GRAY });

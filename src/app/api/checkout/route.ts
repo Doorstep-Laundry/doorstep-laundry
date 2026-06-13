@@ -29,7 +29,7 @@ export async function POST(request: Request) {
   const order = await prisma.order.findUnique({
     where: { id: orderId },
     include: {
-      orderLoads: true,
+      orderLoads: { orderBy: { loadNumber: "asc" } },
       customer: { select: { customPricePerPoundCents: true, nmgrtExempt: true } },
     },
   });
@@ -40,10 +40,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   if (order.stripePaymentId) {
-    return NextResponse.json(
-      { error: "Order already paid" },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "Order already paid" }, { status: 400 });
   }
   const payableStatuses = ["waiting_for_payment", "ready_for_delivery", "out_for_delivery", "delivered"];
   if (!payableStatuses.includes(order.status)) {
@@ -64,6 +61,129 @@ export async function POST(request: Request) {
     order.customer,
     defaultPriceCents
   );
+
+  // -- Handle credited loads --
+  const { pickCreditedLoadIndices, computeLoadCostCents } = await import("@/lib/checkout-line-items");
+  const creditedCount = order.orderLoads.filter((l) => l.creditedLoad).length;
+  const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
+
+  if (creditedCount > 0) {
+    // Re-assign creditedLoad to the heaviest N loads (most expensive first)
+    const creditedIndices = pickCreditedLoadIndices(order.orderLoads, creditedCount, pricePerPoundCents);
+    await prisma.$transaction(
+      order.orderLoads.map((l, i) =>
+        prisma.orderLoad.update({
+          where: { id: l.id },
+          data: { creditedLoad: creditedIndices.has(i) },
+        })
+      )
+    );
+
+    if (creditedCount >= order.orderLoads.length) {
+      // All loads are credited — skip Stripe entirely
+      await prisma.$transaction(async (tx) => {
+        await tx.order.update({
+          where: { id: orderId },
+          data: {
+            stripePaymentId: "CREDIT",
+            totalCents: 0,
+            ...(order.status === "waiting_for_payment" ? { status: "ready_for_delivery" } : {}),
+          },
+        });
+        await tx.orderStatusHistory.create({
+          data: {
+            orderId,
+            status: "ready_for_delivery",
+            note: "All loads covered by load credits; no payment required",
+            changedById: userId,
+          },
+        });
+        if (order.status === "waiting_for_payment") {
+          await tx.orderLoad.updateMany({
+            where: { orderId },
+            data: { status: "ready_for_delivery" },
+          });
+        }
+      });
+      return NextResponse.json({ url: `${baseUrl}/orders/${orderId}?paid=1` });
+    }
+
+    // Partial credits: charge only non-credited loads
+    const nonCreditedLoads = order.orderLoads.filter((_, i) => !creditedIndices.has(i));
+    const creditedLoads = order.orderLoads.filter((_, i) => creditedIndices.has(i));
+    const { totalCents, subtotalCents, taxCents } = computeOrderTotalWithTax(
+      nonCreditedLoads,
+      pricePerPoundCents,
+      grtPercent,
+      nmgrtExempt
+    );
+    if (totalCents <= 0) {
+      return NextResponse.json(
+        { error: "Order total has not been set; contact support" },
+        { status: 400 }
+      );
+    }
+    await prisma.order.update({ where: { id: orderId }, data: { totalCents } });
+
+    const { buildWashAndBulkyStripeLineItems } = await import("@/lib/checkout-line-items");
+    const lineItems = buildWashAndBulkyStripeLineItems(
+      { orderNumber: order.orderNumber, pickupDate: order.pickupDate, deliveryDate: order.deliveryDate },
+      nonCreditedLoads,
+      pricePerPoundCents
+    );
+
+    // Show credited loads as $0 line items so the credit is visible on the Stripe receipt
+    const creditedCostCents = creditedLoads.reduce(
+      (sum, l) => sum + computeLoadCostCents(l, pricePerPoundCents),
+      0
+    );
+    const loadWord = creditedLoads.length === 1 ? "load" : "loads";
+    lineItems.push({
+      price_data: {
+        currency: "usd",
+        product_data: {
+          name: `Free load credit (${creditedLoads.length} ${loadWord})`,
+          description: `Credit applied — ${creditedLoads.length} ${loadWord} washed free (value: $${(creditedCostCents / 100).toFixed(2)})`,
+        },
+        unit_amount: 0,
+      },
+      quantity: 1,
+    });
+
+    if (!nmgrtExempt && taxCents > 0) {
+      lineItems.push({
+        price_data: {
+          currency: "usd",
+          product_data: {
+            name: `NMGRT (${grtPercent}%)`,
+            description: "New Mexico Gross Receipts Tax",
+          },
+          unit_amount: taxCents,
+        },
+        quantity: 1,
+      });
+    }
+
+    void subtotalCents; // used implicitly via totalCents above
+
+    try {
+      const stripe = getStripe();
+      const checkoutSession = await stripe.checkout.sessions.create({
+        mode: "payment",
+        payment_method_types: ["card"],
+        line_items: lineItems,
+        success_url: `${baseUrl}/orders/${orderId}?paid=1`,
+        cancel_url: `${baseUrl}/orders/${orderId}`,
+        metadata: { orderId, order_number: order.orderNumber },
+      });
+      return NextResponse.json({ url: checkoutSession.url });
+    } catch (e) {
+      console.error("Stripe checkout error:", e);
+      return NextResponse.json({ error: "Failed to create checkout session" }, { status: 500 });
+    }
+  }
+
+  // -- No credits: original flow --
   const { subtotalCents, taxCents, totalCents } = computeOrderTotalWithTax(
     order.orderLoads,
     pricePerPoundCents,
@@ -76,21 +196,13 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
+  void subtotalCents;
 
-  await prisma.order.update({
-    where: { id: orderId },
-    data: { totalCents },
-  });
+  await prisma.order.update({ where: { id: orderId }, data: { totalCents } });
 
-  const { buildWashAndBulkyStripeLineItems } = await import(
-    "@/lib/checkout-line-items"
-  );
+  const { buildWashAndBulkyStripeLineItems } = await import("@/lib/checkout-line-items");
   const lineItems = buildWashAndBulkyStripeLineItems(
-    {
-      orderNumber: order.orderNumber,
-      pickupDate: order.pickupDate,
-      deliveryDate: order.deliveryDate,
-    },
+    { orderNumber: order.orderNumber, pickupDate: order.pickupDate, deliveryDate: order.deliveryDate },
     order.orderLoads,
     pricePerPoundCents
   );
@@ -116,24 +228,17 @@ export async function POST(request: Request) {
 
   try {
     const stripe = getStripe();
-    const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
-    const session = await stripe.checkout.sessions.create({
+    const checkoutSession = await stripe.checkout.sessions.create({
       mode: "payment",
       payment_method_types: ["card"],
       line_items: lineItems,
       success_url: `${baseUrl}/orders/${orderId}?paid=1`,
       cancel_url: `${baseUrl}/orders/${orderId}`,
-      metadata: {
-        orderId,
-        order_number: order.orderNumber,
-      },
+      metadata: { orderId, order_number: order.orderNumber },
     });
-    return NextResponse.json({ url: session.url });
+    return NextResponse.json({ url: checkoutSession.url });
   } catch (e) {
     console.error("Stripe checkout error:", e);
-    return NextResponse.json(
-      { error: "Failed to create checkout session" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to create checkout session" }, { status: 500 });
   }
 }

@@ -219,6 +219,7 @@ export async function DELETE(
 
   const order = await prisma.order.findUnique({
     where: { id: orderId },
+    include: { orderLoads: { where: { creditedLoad: true }, select: { id: true } } },
   });
   if (!order) {
     return NextResponse.json({ error: "Order not found" }, { status: 404 });
@@ -234,6 +235,14 @@ export async function DELETE(
   }
 
   try {
+    // Return any consumed credits before deleting
+    const creditedCount = order.orderLoads.length;
+    if (creditedCount > 0) {
+      await prisma.user.update({
+        where: { id: order.customerId },
+        data: { creditedLoads: { increment: creditedCount } },
+      });
+    }
     await prisma.order.delete({ where: { id: orderId } });
     return new NextResponse(null, { status: 204 });
   } catch (e) {
