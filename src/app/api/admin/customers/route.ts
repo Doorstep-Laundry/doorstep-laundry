@@ -37,6 +37,7 @@ export async function GET(request: Request) {
       role: true,
       customPricePerPoundCents: true,
       nmgrtExempt: true,
+      customerType: true,
     },
   });
   return NextResponse.json(customers);

@@ -3,6 +3,29 @@
 import { useState, useCallback } from "react";
 import Link from "next/link";
 
+type CustomerType =
+  | "young_professional"
+  | "busy_family"
+  | "mobility_limited"
+  | "business"
+  | "not_set";
+
+const CUSTOMER_TYPE_LABELS: Record<CustomerType, string> = {
+  young_professional: "Young Professional",
+  busy_family: "Busy Family",
+  mobility_limited: "Mobility-Limited",
+  business: "Business",
+  not_set: "Not Set",
+};
+
+const CUSTOMER_TYPE_OPTIONS: CustomerType[] = [
+  "not_set",
+  "young_professional",
+  "busy_family",
+  "mobility_limited",
+  "business",
+];
+
 type CustomerSearchHit = {
   id: string;
   email: string;
@@ -10,6 +33,7 @@ type CustomerSearchHit = {
   role: string;
   customPricePerPoundCents: number | null;
   nmgrtExempt: boolean;
+  customerType: CustomerType;
 };
 
 type CustomerDetail = CustomerSearchHit & {
@@ -30,6 +54,7 @@ export function AdminCustomerSearch() {
   const [saving, setSaving] = useState(false);
   const [customRate, setCustomRate] = useState<string>("");
   const [nmgrtExempt, setNmgrtExempt] = useState(false);
+  const [customerType, setCustomerType] = useState<CustomerType>("not_set");
   const [message, setMessage] = useState("");
 
   const runSearch = useCallback(() => {
@@ -71,6 +96,7 @@ export function AdminCustomerSearch() {
             : ""
         );
         setNmgrtExempt(Boolean(data.nmgrtExempt));
+        setCustomerType((data.customerType as CustomerType) ?? "not_set");
         setLoadingDetail(false);
       })
       .catch(() => {
@@ -79,13 +105,18 @@ export function AdminCustomerSearch() {
       });
   }
 
-  async function savePricing() {
+  async function saveCustomer() {
     if (!selected) return;
     setSaving(true);
     setMessage("");
     try {
-      const body: { customPricePerPoundCents?: number | null; nmgrtExempt?: boolean } = {
+      const body: {
+        customPricePerPoundCents?: number | null;
+        nmgrtExempt?: boolean;
+        customerType?: CustomerType;
+      } = {
         nmgrtExempt,
+        customerType,
       };
       if (customRate === "" || customRate.trim() === "") {
         body.customPricePerPoundCents = null;
@@ -112,6 +143,7 @@ export function AdminCustomerSearch() {
               ...prev,
               customPricePerPoundCents: data.customPricePerPoundCents ?? null,
               nmgrtExempt: data.nmgrtExempt ?? false,
+              customerType: data.customerType ?? "not_set",
             }
           : null
       );
@@ -158,7 +190,14 @@ export function AdminCustomerSearch() {
                   onClick={() => selectCustomer(c)}
                   className="w-full px-4 py-3 text-left hover:bg-fern-50 transition-colors"
                 >
-                  <div className="font-medium text-fern-900">{c.email}</div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-fern-900">{c.email}</span>
+                    {c.customerType !== "not_set" && (
+                      <span className="text-xs rounded-full bg-fern-100 text-fern-700 px-2 py-0.5 font-medium">
+                        {CUSTOMER_TYPE_LABELS[c.customerType]}
+                      </span>
+                    )}
+                  </div>
                   {c.name && (
                     <div className="text-sm text-fern-500">{c.name}</div>
                   )}
@@ -176,14 +215,21 @@ export function AdminCustomerSearch() {
       {selected && (
         <div className="rounded-2xl border border-fern-200/80 bg-white p-6 shadow-sm space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-medium text-fern-900">
-              {selected.email}
-              {selected.name && (
-                <span className="text-fern-600 font-normal ml-2">
-                  {selected.name}
+            <div className="flex items-center gap-3">
+              <h3 className="text-lg font-medium text-fern-900">
+                {selected.email}
+                {selected.name && (
+                  <span className="text-fern-600 font-normal ml-2">
+                    {selected.name}
+                  </span>
+                )}
+              </h3>
+              {selected.customerType !== "not_set" && (
+                <span className="text-xs rounded-full bg-fern-100 text-fern-700 px-2.5 py-1 font-medium">
+                  {CUSTOMER_TYPE_LABELS[selected.customerType]}
                 </span>
               )}
-            </h3>
+            </div>
             <button
               type="button"
               onClick={() => setSelected(null)}
@@ -200,6 +246,22 @@ export function AdminCustomerSearch() {
             </Link>
           </p>
           <div className="grid gap-3 max-w-md">
+            <div>
+              <label className="block text-sm font-medium text-fern-700 mb-1">
+                Customer type
+              </label>
+              <select
+                value={customerType}
+                onChange={(e) => setCustomerType(e.target.value as CustomerType)}
+                className={inputClass}
+              >
+                {CUSTOMER_TYPE_OPTIONS.map((t) => (
+                  <option key={t} value={t}>
+                    {CUSTOMER_TYPE_LABELS[t]}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div>
               <label className="block text-sm font-medium text-fern-700 mb-1">
                 Custom price per pound (cents)
@@ -231,11 +293,11 @@ export function AdminCustomerSearch() {
             </div>
             <button
               type="button"
-              onClick={savePricing}
+              onClick={saveCustomer}
               disabled={saving}
               className="rounded-lg bg-fern-500 text-white px-4 py-2 text-sm font-medium hover:bg-fern-600 disabled:opacity-50 w-fit"
             >
-              {saving ? "Saving…" : "Save pricing"}
+              {saving ? "Saving…" : "Save"}
             </button>
           </div>
         </div>

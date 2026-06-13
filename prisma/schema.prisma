@@ -16,6 +16,14 @@ enum Role {
   admin
 }
 
+enum CustomerType {
+  young_professional
+  busy_family
+  mobility_limited
+  business
+  not_set
+}
+
 enum OrderStatus {
   scheduled
   picked_up
@@ -49,8 +57,9 @@ model User {
   role                     Role      @default(customer)
   passwordHash             String?   @map("password_hash")
   authProvider             String?   @map("auth_provider")
-  customPricePerPoundCents Int?      @map("custom_price_per_pound_cents")
-  nmgrtExempt              Boolean   @default(false) @map("nmgrt_exempt")
+  customPricePerPoundCents Int?          @map("custom_price_per_pound_cents")
+  nmgrtExempt              Boolean       @default(false) @map("nmgrt_exempt")
+  customerType             CustomerType  @default(not_set) @map("customer_type")
   defaultLoadOptions        Json?     @map("default_load_options")
   emailVerifiedAt          DateTime? @map("email_verified_at")
   createdAt                DateTime  @default(now()) @map("created_at")

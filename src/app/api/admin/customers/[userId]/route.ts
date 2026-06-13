@@ -2,6 +2,18 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { CustomerType } from "@prisma/client";
+
+const CUSTOMER_TYPE_VALUES = new Set<string>(Object.values(CustomerType));
+
+const CUSTOMER_SELECT = {
+  id: true,
+  email: true,
+  name: true,
+  customPricePerPoundCents: true,
+  nmgrtExempt: true,
+  customerType: true,
+} as const;
 
 /** GET: Customer detail for admin (pricing, orders count). */
 export async function GET(
@@ -21,13 +33,9 @@ export async function GET(
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
-      id: true,
-      email: true,
-      name: true,
+      ...CUSTOMER_SELECT,
       phone: true,
       role: true,
-      customPricePerPoundCents: true,
-      nmgrtExempt: true,
       defaultLoadOptions: true,
       _count: { select: { orders: true } },
     },
@@ -39,7 +47,7 @@ export async function GET(
   return NextResponse.json({ ...rest, orderCount: _count.orders });
 }
 
-/** PATCH: Update customer pricing (admin only). Body: customPricePerPoundCents?, nmgrtExempt? */
+/** PATCH: Update customer settings (admin only). Body: customPricePerPoundCents?, nmgrtExempt?, customerType? */
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ userId: string }> }
@@ -54,14 +62,19 @@ export async function PATCH(
   }
 
   const { userId } = await params;
-  let body: { customPricePerPoundCents?: number | null; nmgrtExempt?: boolean };
+  let body: { customPricePerPoundCents?: number | null; nmgrtExempt?: boolean; customerType?: string };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const data: { customPricePerPoundCents?: number | null; nmgrtExempt?: boolean } = {};
+  const data: {
+    customPricePerPoundCents?: number | null;
+    nmgrtExempt?: boolean;
+    customerType?: CustomerType;
+  } = {};
+
   if (body.customPricePerPoundCents !== undefined) {
     if (body.customPricePerPoundCents === null) {
       data.customPricePerPoundCents = null;
@@ -75,11 +88,14 @@ export async function PATCH(
   if (typeof body.nmgrtExempt === "boolean") {
     data.nmgrtExempt = body.nmgrtExempt;
   }
+  if (typeof body.customerType === "string" && CUSTOMER_TYPE_VALUES.has(body.customerType)) {
+    data.customerType = body.customerType as CustomerType;
+  }
 
   if (Object.keys(data).length === 0) {
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, email: true, name: true, customPricePerPoundCents: true, nmgrtExempt: true },
+      select: CUSTOMER_SELECT,
     });
     return NextResponse.json(user ?? { error: "Not found" }, { status: user ? 200 : 404 });
   }
@@ -87,13 +103,7 @@ export async function PATCH(
   const updated = await prisma.user.update({
     where: { id: userId },
     data,
-    select: {
-      id: true,
-      email: true,
-      name: true,
-      customPricePerPoundCents: true,
-      nmgrtExempt: true,
-    },
+    select: CUSTOMER_SELECT,
   });
   return NextResponse.json(updated);
 }
