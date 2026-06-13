@@ -2,80 +2,72 @@
 
 import { useEffect, useState } from "react";
 import {
-  ScatterChart,
-  Scatter,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
+  Legend,
   ResponsiveContainer,
-  type ScatterShapeProps,
 } from "recharts";
 import type { LoadsByDayPoint } from "@/app/api/admin/analytics/loads-by-day-of-week/route";
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const AM_COLOR   = "#2d6a4f";
+const PM_COLOR   = "#c08040";
 
-// AM dots sit slightly left, PM dots slightly right so they don't overlap.
-const AM_OFFSET = -0.15;
-const PM_OFFSET =  0.15;
+type ChartRow = { day: string; morning: number; evening: number };
 
-const AM_COLOR = "#2d6a4f";
-const PM_COLOR = "#c08040";
+const dateInputClass =
+  "rounded-lg border border-fern-200 bg-white px-2.5 py-1.5 text-sm text-fern-900 focus:border-fern-500 focus:outline-none focus:ring-2 focus:ring-fern-500/20";
 
-type ScatterPoint = { x: number; y: number; label: string };
+function todayStr()    { return new Date().toISOString().split("T")[0]; }
+function janFirstStr() { return `${new Date().getFullYear()}-01-01`; }
 
-// Hollow circle for AM pickups (before noon)
-function HollowCircle(props: ScatterShapeProps) {
-  const { cx, cy } = props;
-  if (cx == null || cy == null) return null;
-  return <circle cx={cx} cy={cy} r={6} fill="none" stroke={AM_COLOR} strokeWidth={2} />;
-}
-
-// Hollow square for PM pickups (after noon)
-function HollowSquare(props: ScatterShapeProps) {
-  const { cx, cy } = props;
-  if (cx == null || cy == null) return null;
-  return <rect x={cx - 5} y={cy - 5} width={10} height={10} fill="none" stroke={PM_COLOR} strokeWidth={2} />;
-}
-
-function CustomTooltip({ active, payload }: { active?: boolean; payload?: { payload: ScatterPoint }[] }) {
-  if (!active || !payload?.length) return null;
-  const pt = payload[0].payload;
+function CustomLegend() {
   return (
-    <div className="rounded-lg border border-fern-200 bg-white px-3 py-2 text-xs shadow-sm">
-      <p className="font-medium text-fern-900">{pt.label}</p>
-      <p className="text-fern-600">{pt.y} load{pt.y !== 1 ? "s" : ""}</p>
+    <div className="flex justify-center gap-6 pt-3 text-sm text-fern-700">
+      <span className="flex items-center gap-1.5">
+        <span className="inline-block h-3 w-3 rounded-sm" style={{ background: AM_COLOR }} />
+        Morning
+      </span>
+      <span className="flex items-center gap-1.5">
+        <span className="inline-block h-3 w-3 rounded-sm" style={{ background: PM_COLOR }} />
+        Evening
+      </span>
     </div>
   );
 }
 
 export function AdminAnalyticsLoadsByDayChart() {
-  const [raw, setRaw] = useState<LoadsByDayPoint[]>([]);
+  const [data, setData] = useState<ChartRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [from, setFrom] = useState(janFirstStr);
+  const [to,   setTo]   = useState(todayStr);
 
   useEffect(() => {
-    fetch("/api/admin/analytics/loads-by-day-of-week")
+    setLoading(true);
+    setError("");
+    const params = new URLSearchParams();
+    if (from) params.set("from", from);
+    if (to)   params.set("to",   to);
+    const url = `/api/admin/analytics/loads-by-day-of-week${params.size ? `?${params}` : ""}`;
+
+    fetch(url)
       .then((r) => r.json())
-      .then((data: LoadsByDayPoint[]) => { setRaw(data); setLoading(false); })
+      .then((raw: LoadsByDayPoint[]) => {
+        const rows: ChartRow[] = DAY_LABELS.map((day, i) => {
+          const am = raw.find((r) => r.dayOfWeek === i &&  r.isAm);
+          const pm = raw.find((r) => r.dayOfWeek === i && !r.isAm);
+          return { day, morning: am?.loadCount ?? 0, evening: pm?.loadCount ?? 0 };
+        });
+        setData(rows);
+        setLoading(false);
+      })
       .catch(() => { setError("Failed to load data."); setLoading(false); });
-  }, []);
-
-  const amData: ScatterPoint[] = raw
-    .filter((r) => r.isAm)
-    .map((r) => ({
-      x: r.dayOfWeek + AM_OFFSET,
-      y: r.loadCount,
-      label: `${DAY_LABELS[r.dayOfWeek]} · Morning · wk ${r.weekNumber} ${r.year}`,
-    }));
-
-  const pmData: ScatterPoint[] = raw
-    .filter((r) => !r.isAm)
-    .map((r) => ({
-      x: r.dayOfWeek + PM_OFFSET,
-      y: r.loadCount,
-      label: `${DAY_LABELS[r.dayOfWeek]} · Evening · wk ${r.weekNumber} ${r.year}`,
-    }));
+  }, [from, to]);
 
   return (
     <div className="rounded-2xl border border-fern-200/80 bg-white p-6 shadow-sm">
@@ -83,19 +75,32 @@ export function AdminAnalyticsLoadsByDayChart() {
         <h2 className="text-base font-semibold text-fern-900">
           Scheduled Loads by Day of Week
         </h2>
-        <div className="flex items-center gap-4 text-xs text-fern-700">
-          <span className="flex items-center gap-1.5">
-            <svg width="14" height="14" viewBox="0 0 14 14">
-              <circle cx="7" cy="7" r="5" fill="none" stroke={AM_COLOR} strokeWidth="2" />
-            </svg>
-            Morning (before noon)
-          </span>
-          <span className="flex items-center gap-1.5">
-            <svg width="14" height="14" viewBox="0 0 14 14">
-              <rect x="2" y="2" width="10" height="10" fill="none" stroke={PM_COLOR} strokeWidth="2" />
-            </svg>
-            Evening (after noon)
-          </span>
+        <div className="flex items-center gap-2 text-sm text-fern-600">
+          <label htmlFor="dow-from">From</label>
+          <input
+            id="dow-from"
+            type="date"
+            value={from}
+            max={to || undefined}
+            onChange={(e) => setFrom(e.target.value)}
+            className={dateInputClass}
+          />
+          <label htmlFor="dow-to">To</label>
+          <input
+            id="dow-to"
+            type="date"
+            value={to}
+            min={from || undefined}
+            onChange={(e) => setTo(e.target.value)}
+            className={dateInputClass}
+          />
+          <button
+            type="button"
+            onClick={() => { setFrom(janFirstStr()); setTo(todayStr()); }}
+            className="text-fern-400 hover:text-fern-700 text-xs underline whitespace-nowrap"
+          >
+            Reset
+          </button>
         </div>
       </div>
 
@@ -104,22 +109,16 @@ export function AdminAnalyticsLoadsByDayChart() {
       ) : error ? (
         <p className="text-sm text-red-500 py-24 text-center">{error}</p>
       ) : (
-        <ResponsiveContainer width="100%" height={340}>
-          <ScatterChart margin={{ top: 8, right: 24, left: 8, bottom: 4 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e2ede6" />
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={data} margin={{ top: 8, right: 24, left: 8, bottom: 4 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e2ede6" vertical={false} />
             <XAxis
-              type="number"
-              dataKey="x"
-              domain={[-0.5, 6.5]}
-              ticks={[0, 1, 2, 3, 4, 5, 6]}
-              tickFormatter={(v) => DAY_LABELS[Math.round(v)] ?? ""}
+              dataKey="day"
               tick={{ fontSize: 12, fill: "#4a7c5c" }}
               tickLine={false}
               axisLine={{ stroke: "#c3dbc9" }}
             />
             <YAxis
-              type="number"
-              dataKey="y"
               allowDecimals={false}
               tick={{ fontSize: 12, fill: "#4a7c5c" }}
               tickLine={false}
@@ -133,10 +132,14 @@ export function AdminAnalyticsLoadsByDayChart() {
                 style: { fontSize: 11, fill: "#4a7c5c" },
               }}
             />
-            <Tooltip content={<CustomTooltip />} />
-            <Scatter name="Morning" data={amData} shape={HollowCircle} />
-            <Scatter name="Evening" data={pmData} shape={HollowSquare} />
-          </ScatterChart>
+            <Tooltip
+              cursor={{ fill: "#f0f7f2" }}
+              contentStyle={{ fontSize: 13, borderRadius: 8, borderColor: "#c3dbc9" }}
+            />
+            <Legend content={<CustomLegend />} />
+            <Bar dataKey="morning" name="Morning before noon" fill={AM_COLOR} radius={[3, 3, 0, 0]} maxBarSize={32} />
+            <Bar dataKey="evening" name="Evening after noon"  fill={PM_COLOR} radius={[3, 3, 0, 0]} maxBarSize={32} />
+          </BarChart>
         </ResponsiveContainer>
       )}
     </div>
