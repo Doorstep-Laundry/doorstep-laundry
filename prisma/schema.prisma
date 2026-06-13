@@ -125,6 +125,7 @@ model Order {
   orderPricePerPoundCents Int?        @map("order_price_per_pound_cents")
   nmgrtExempt             Boolean?    @map("nmgrt_exempt")
   stripePaymentId         String?     @map("stripe_payment_id")
+  paymentWaived           Boolean     @default(false) @map("payment_waived")
   createdAt          DateTime    @default(now()) @map("created_at")
   updatedAt          DateTime    @updatedAt @map("updated_at")
 

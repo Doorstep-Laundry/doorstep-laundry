@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { getTimeSlotById } from "@/lib/slots";
 import { ResendPaymentButton } from "@/app/orders/[orderId]/resend-payment-button";
+import { WaivePaymentButton } from "@/app/orders/[orderId]/waive-payment-button";
 
 type SortKey = "order" | "customer" | "status" | "loads" | "location" | "pickup";
 type SortDir = "asc" | "desc";
@@ -52,6 +53,7 @@ type OrderRow = {
   orderNumber: string;
   status: string;
   stripePaymentId?: string | null;
+  paymentWaived?: boolean;
   numberOfLoads: number;
   pickupDate: Date | string;
   deliveryDate: Date | string;
@@ -91,8 +93,10 @@ type OrderDetail = OrderRow & {
 
 export function OrdersTable({
   initialOrders,
+  role,
 }: {
   initialOrders: OrderRow[];
+  role?: string;
 }) {
   const [orders, setOrders] = useState(initialOrders);
   const [filter, setFilter] = useState<"due_today" | "all">("all");
@@ -471,9 +475,12 @@ export function OrdersTable({
                                 <p className="text-fern-900 mt-0.5">{detail.notes}</p>
                               </div>
                             )}
-                            {order.status === "waiting_for_payment" && !order.stripePaymentId && (
+                            {order.status === "waiting_for_payment" && !order.stripePaymentId && !order.paymentWaived && (
                               <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-fern-200" onClick={(e) => e.stopPropagation()}>
                                 <ResendPaymentButton orderId={order.id} />
+                                {role === "admin" && (
+                                  <WaivePaymentButton orderId={order.id} />
+                                )}
                               </div>
                             )}
                             {"totalCents" in detail && detail.totalCents != null && (

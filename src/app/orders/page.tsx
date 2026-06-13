@@ -32,7 +32,7 @@ export default async function OrdersPage() {
         <p className="text-sm text-fern-600 mb-6">
           One row per order. Order status matches the Wash page.
         </p>
-        <OrdersTable initialOrders={orders} />
+        <OrdersTable initialOrders={orders} role={role} />
       </main>
     </div>
   );
