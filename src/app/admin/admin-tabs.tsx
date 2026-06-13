@@ -13,6 +13,7 @@ import { AdminPastDueGracePeriod } from "./admin-past-due-grace-period";
 import { DebugTools } from "@/app/debug/debug-tools";
 import { AdminAnalyticsCustomerTypeChart } from "./admin-analytics-customer-type-chart";
 import { AdminAnalyticsRevenueByMonthChart } from "./admin-analytics-revenue-by-month-chart";
+import { AdminAnalyticsLoadsByDayChart } from "./admin-analytics-loads-by-day-chart";
 
 type Tab = "operations" | "analytics" | "debug";
 
@@ -140,6 +141,7 @@ export function AdminTabs() {
         <div className="space-y-8">
           <AdminAnalyticsCustomerTypeChart />
           <AdminAnalyticsRevenueByMonthChart />
+          <AdminAnalyticsLoadsByDayChart />
         </div>
       )}
 
