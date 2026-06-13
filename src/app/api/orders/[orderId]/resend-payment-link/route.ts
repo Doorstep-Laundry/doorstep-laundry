@@ -36,9 +36,10 @@ export async function POST(
   if (order.customerId !== userId && !isStaff(role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  if (order.status !== "waiting_for_payment") {
+  const payableStatuses = ["waiting_for_payment", "ready_for_delivery", "out_for_delivery", "delivered"];
+  if (!payableStatuses.includes(order.status)) {
     return NextResponse.json(
-      { error: "Order is not waiting for payment" },
+      { error: "Order is not ready for payment" },
       { status: 400 }
     );
   }

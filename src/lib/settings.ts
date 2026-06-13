@@ -9,6 +9,10 @@ const GRT_PERCENT_KEY = "grt_percent";
 const DEFAULT_GRT_PERCENT = 8.39;
 const PRICE_PER_POUND_KEY = "price_per_pound_cents";
 const DEFAULT_PRICE_PER_POUND_CENTS = 150;
+const PAST_DUE_GRACE_PERIOD_DAYS_KEY = "past_due_grace_period_days";
+const DEFAULT_PAST_DUE_GRACE_PERIOD_DAYS = 3;
+
+export { PAST_DUE_GRACE_PERIOD_DAYS_KEY };
 
 export const MAX_SERVICE_DISTANCE_MILES_KEY = "max_service_distance_miles";
 
@@ -79,6 +83,18 @@ export async function getMaxServiceDistanceMiles(): Promise<number> {
   if (!row?.value?.trim()) return 0;
   const value = parseFloat(row.value);
   return Number.isFinite(value) && value > 0 ? value : 0;
+}
+
+/**
+ * Server-side only. Number of days after deliveryDate before an unpaid order is considered past due. Default 3.
+ */
+export async function getPastDueGracePeriodDays(): Promise<number> {
+  const row = await prisma.setting.findUnique({
+    where: { key: PAST_DUE_GRACE_PERIOD_DAYS_KEY },
+  });
+  if (!row) return DEFAULT_PAST_DUE_GRACE_PERIOD_DAYS;
+  const value = parseInt(row.value, 10);
+  return Number.isFinite(value) && value >= 0 ? value : DEFAULT_PAST_DUE_GRACE_PERIOD_DAYS;
 }
 
 /**

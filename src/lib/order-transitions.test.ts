@@ -29,8 +29,10 @@ describe("order status transitions", () => {
     expect(VALID_ORDER_TRANSITIONS.in_progress).toContain("cancelled");
   });
 
-  it("waiting_for_payment has no manual next (webhook sets ready_for_delivery)", () => {
-    expect(VALID_ORDER_TRANSITIONS.waiting_for_payment).toEqual([]);
+  it("waiting_for_payment can go to ready_for_delivery or cancelled (delivery independent of payment)", () => {
+    expect(VALID_ORDER_TRANSITIONS.waiting_for_payment).toContain("ready_for_delivery");
+    expect(VALID_ORDER_TRANSITIONS.waiting_for_payment).toContain("cancelled");
+    expect(VALID_ORDER_TRANSITIONS.waiting_for_payment).not.toContain("delivered");
   });
 
   it("ready_for_delivery can go to out_for_delivery or cancelled", () => {

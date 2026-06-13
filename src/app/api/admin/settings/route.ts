@@ -3,7 +3,9 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { isValidPhone, normalizePhone, formatPhoneForStorage } from "@/lib/phone";
-import { MAX_SERVICE_DISTANCE_MILES_KEY } from "@/lib/settings";
+import { MAX_SERVICE_DISTANCE_MILES_KEY, PAST_DUE_GRACE_PERIOD_DAYS_KEY } from "@/lib/settings";
+
+const DEFAULT_PAST_DUE_GRACE_PERIOD_DAYS = 3;
 import {
   BOOKING_AVAILABILITY_KEY,
   parseBookingAvailabilityJson,
@@ -41,12 +43,13 @@ export async function GET() {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const [priceRow, grtRow, companyRows, maxDistRow, bookingRow] = await Promise.all([
+    const [priceRow, grtRow, companyRows, maxDistRow, bookingRow, pastDueRow] = await Promise.all([
       prisma.setting.findUnique({ where: { key: PRICE_PER_POUND_KEY } }),
       prisma.setting.findUnique({ where: { key: GRT_PERCENT_KEY } }),
       prisma.setting.findMany({ where: { key: { in: Object.values(COMPANY_KEYS) } } }),
       prisma.setting.findUnique({ where: { key: MAX_SERVICE_DISTANCE_MILES_KEY } }),
       prisma.setting.findUnique({ where: { key: BOOKING_AVAILABILITY_KEY } }),
+      prisma.setting.findUnique({ where: { key: PAST_DUE_GRACE_PERIOD_DAYS_KEY } }),
     ]);
     const pricePerPoundCents = priceRow
       ? parseInt(priceRow.value, 10) || DEFAULT_PRICE_PER_POUND_CENTS
@@ -66,9 +69,13 @@ export async function GET() {
       ? parseFloat(maxDistRow.value)
       : null;
     const bookingAvailability = parseBookingAvailabilityJson(bookingRow?.value);
+    const pastDueGracePeriodDays = pastDueRow?.value
+      ? (parseInt(pastDueRow.value, 10) || DEFAULT_PAST_DUE_GRACE_PERIOD_DAYS)
+      : DEFAULT_PAST_DUE_GRACE_PERIOD_DAYS;
     return NextResponse.json({
       pricePerPoundCents,
       grtPercent,
+      pastDueGracePeriodDays,
       maxServiceDistanceMiles:
         maxServiceDistanceMiles != null &&
         Number.isFinite(maxServiceDistanceMiles) &&
@@ -110,6 +117,7 @@ export async function PATCH(request: Request) {
   let body: {
     pricePerPoundCents?: number;
     grtPercent?: number;
+    pastDueGracePeriodDays?: number;
     companyName?: string;
     companyAddress?: string;
     companyPhone?: string;
@@ -136,6 +144,12 @@ export async function PATCH(request: Request) {
     const value = Math.round(body.grtPercent * 100) / 100;
     await upsertSetting(GRT_PERCENT_KEY, String(value), "setting-grt-percent");
     result.grtPercent = value;
+  }
+
+  if (typeof body.pastDueGracePeriodDays === "number" && body.pastDueGracePeriodDays >= 0) {
+    const days = Math.round(body.pastDueGracePeriodDays);
+    await upsertSetting(PAST_DUE_GRACE_PERIOD_DAYS_KEY, String(days), "setting-past-due-grace-period-days");
+    result.pastDueGracePeriodDays = days;
   }
 
   if (typeof body.companyName === "string") {

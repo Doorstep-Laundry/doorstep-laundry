@@ -14,13 +14,13 @@ export type OrderStatus =
   | "delivered"
   | "cancelled";
 
-/** Allowed manual transitions from each order status. waiting_for_payment → ready_for_delivery is via Stripe webhook only. */
+/** Allowed manual transitions from each order status. */
 export const VALID_ORDER_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   scheduled: ["picked_up", "cancelled"],
   picked_up: ["ready_for_wash", "in_progress", "cancelled"],
   ready_for_wash: ["in_progress", "cancelled"],
   in_progress: ["ready_for_delivery", "out_for_delivery", "cancelled"],
-  waiting_for_payment: [], // webhook sets ready_for_delivery
+  waiting_for_payment: ["ready_for_delivery", "cancelled"],
   ready_for_delivery: ["out_for_delivery", "cancelled"],
   out_for_delivery: ["delivered"],
   delivered: [],
@@ -47,8 +47,8 @@ export type LoadRow = { status: string; location?: string | null; weightLbs?: nu
  * - picked_up → ready_for_wash when all loads have a location (shelf).
  * - ready_for_wash → in_progress when any load is washing.
  * - in_progress: any load in incoming, ready_for_wash, washing, drying, folding.
- * - in_progress → waiting_for_payment when all loads are "cleaned" and have weightLbs (load stays cleaned until payment).
- * - ready_for_delivery: order only via Stripe webhook; loads set to ready_for_delivery there too.
+ * - in_progress → waiting_for_payment when all loads are "cleaned" and have weightLbs (balance set, delivery can proceed independently).
+ * - ready_for_delivery: manual transition from waiting_for_payment, or auto via Stripe webhook when payment received first.
  */
 export function getOrderStatusFromLoads(
   currentOrderStatus: OrderStatus,

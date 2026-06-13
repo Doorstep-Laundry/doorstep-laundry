@@ -45,7 +45,8 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
-  if (order.status !== "waiting_for_payment") {
+  const payableStatuses = ["waiting_for_payment", "ready_for_delivery", "out_for_delivery", "delivered"];
+  if (!payableStatuses.includes(order.status)) {
     return NextResponse.json(
       { error: "Order is not ready for payment yet" },
       { status: 400 }
