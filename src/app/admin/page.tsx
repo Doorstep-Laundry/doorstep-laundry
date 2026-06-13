@@ -11,6 +11,7 @@ import { AdminGrtPercent } from "./admin-grt-percent";
 import { AdminCompanyInfo } from "./admin-company-info";
 import { AdminBookingAvailability } from "./admin-booking-availability";
 import { AdminDebugSection } from "./admin-debug-section";
+import { AdminPastDueGracePeriod } from "./admin-past-due-grace-period";
 
 export default async function AdminPage() {
   const session = await getServerSession(authOptions);
@@ -90,6 +91,16 @@ export default async function AdminPage() {
             Use the grid: each column is a day, each row is a time window. Checked cells are shown to customers for both pickup and delivery.
           </p>
           <AdminBookingAvailability />
+        </section>
+
+        <section>
+          <h2 className="text-lg font-semibold text-fern-900 mb-2">
+            Past due grace period
+          </h2>
+          <p className="text-sm text-fern-600 mb-6">
+            Number of days after the scheduled delivery date before an unpaid order is considered past due. Customers with a past due balance cannot schedule a new pickup until they pay. Default is 3 days.
+          </p>
+          <AdminPastDueGracePeriod />
         </section>
 
         <section>

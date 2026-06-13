@@ -3,7 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { generateOrderNumber } from "@/lib/order-number";
-import { sendOrderNotification } from "@/lib/notify";
+import { sendOrderNotification, sendPastDueReminderEmail } from "@/lib/notify";
+import { getPastDueOrders } from "@/lib/past-due";
 import { toOrderLoadOptions, type LoadOptionsInput } from "@/lib/load-options";
 import {
   normalizeBulkyItems,
@@ -141,11 +142,26 @@ export async function POST(request: Request) {
   }
   const customerId = (session.user as { id: string }).id;
   if (role === "customer") {
-    const orders = await prisma.order.findMany({ where: { customerId } });
+    const [orders, pastDueOrders] = await Promise.all([
+      prisma.order.findMany({ where: { customerId }, select: { id: true } }),
+      getPastDueOrders(customerId),
+    ]);
     if (orders.length >= 100) {
       return NextResponse.json(
         { error: "Order limit reached" },
         { status: 400 }
+      );
+    }
+    if (pastDueOrders.length > 0) {
+      sendPastDueReminderEmail(customerId, pastDueOrders).catch((e) =>
+        console.error("[orders POST] sendPastDueReminderEmail:", e)
+      );
+      return NextResponse.json(
+        {
+          error: "You have an outstanding balance. Please pay your previous order before scheduling a new pickup.",
+          pastDueOrderIds: pastDueOrders.map((o) => o.id),
+        },
+        { status: 402 }
       );
     }
   }

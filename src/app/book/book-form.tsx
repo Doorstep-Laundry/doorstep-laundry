@@ -58,6 +58,7 @@ export function BookForm({
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [pastDueOrderIds, setPastDueOrderIds] = useState<string[]>([]);
 
   // Step 1 state — one preferences block per load (length = numberOfLoads)
   const [loadOptions, setLoadOptions] = useState<LoadOptionsInput[]>(() => {
@@ -443,6 +444,9 @@ export function BookForm({
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
+      if (res.status === 402 && Array.isArray(data.pastDueOrderIds)) {
+        setPastDueOrderIds(data.pastDueOrderIds as string[]);
+      }
       setError(data.error ?? (editOrderId ? "Failed to update order" : "Failed to create order"));
       return;
     }
@@ -517,6 +521,9 @@ export function BookForm({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
+        if (res.status === 402 && Array.isArray(data.pastDueOrderIds)) {
+          setPastDueOrderIds(data.pastDueOrderIds as string[]);
+        }
         setError(data.error ?? (editOrderId ? "Failed to update order" : "Failed to create order"));
         setLoading(false);
         return;
@@ -788,7 +795,24 @@ export function BookForm({
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {error && (
+        {pastDueOrderIds.length > 0 && (
+          <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            <p className="font-semibold mb-1">Outstanding balance</p>
+            <p className="mb-2">Please pay your previous order{pastDueOrderIds.length > 1 ? "s" : ""} before scheduling a new pickup.</p>
+            <div className="flex flex-wrap gap-2">
+              {pastDueOrderIds.map((id, i) => (
+                <a
+                  key={id}
+                  href={`/orders/${id}`}
+                  className="inline-block rounded-lg bg-amber-600 text-white px-3 py-1.5 text-xs font-semibold hover:bg-amber-700"
+                >
+                  Pay order {i + 1}
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+        {error && !pastDueOrderIds.length && (
           <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>
         )}
 
@@ -958,7 +982,7 @@ export function BookForm({
 
         <button
           type="submit"
-          disabled={loading || (pendingSave?.mode === "order" && !!verifyResult?.suggested)}
+          disabled={loading || pastDueOrderIds.length > 0 || (pendingSave?.mode === "order" && !!verifyResult?.suggested)}
           className="w-full rounded-lg bg-fern-500 text-white py-3 font-medium hover:bg-fern-600 disabled:opacity-50 transition-colors"
         >
           {loading

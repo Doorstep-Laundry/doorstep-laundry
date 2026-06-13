@@ -41,30 +41,30 @@ export async function POST(request: Request) {
   if (order.stripePaymentId) {
     return NextResponse.json({ received: true });
   }
-  // Payment completes the post-weigh flow: waiting_for_payment → ready_for_delivery
-  if (order.status !== "waiting_for_payment") {
-    return NextResponse.json({ received: true });
+
+  const paymentId = String(session.payment_intent ?? session.id);
+
+  // If still waiting for payment, advance to ready_for_delivery.
+  // If delivery already proceeded (ready_for_delivery, out_for_delivery, delivered), just record payment.
+  if (order.status === "waiting_for_payment") {
+    await prisma.order.update({
+      where: { id: orderId },
+      data: { stripePaymentId: paymentId, status: "ready_for_delivery" },
+    });
+    await prisma.orderLoad.updateMany({
+      where: { orderId },
+      data: { status: "ready_for_delivery" },
+    });
+    await prisma.orderStatusHistory.create({
+      data: { orderId, status: "ready_for_delivery", note: "Payment received; ready for delivery" },
+    });
+  } else {
+    await prisma.order.update({
+      where: { id: orderId },
+      data: { stripePaymentId: paymentId },
+    });
   }
 
-  const paymentId = session.payment_intent ?? session.id;
-  await prisma.order.update({
-    where: { id: orderId },
-    data: {
-      stripePaymentId: String(paymentId),
-      status: "ready_for_delivery",
-    },
-  });
-  await prisma.orderLoad.updateMany({
-    where: { orderId },
-    data: { status: "ready_for_delivery" },
-  });
-  await prisma.orderStatusHistory.create({
-    data: {
-      orderId,
-      status: "ready_for_delivery",
-      note: "Payment received; ready for delivery",
-    },
-  });
   await sendOrderNotification(orderId, "payment_received").catch((e) =>
     console.error("Notify payment_received:", e)
   );

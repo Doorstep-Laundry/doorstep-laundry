@@ -4,6 +4,7 @@ import { Resend } from "resend";
 import { getGrtPercent, getCompanyInfo, getPricePerPoundCents } from "./settings";
 import { toE164 } from "./phone";
 import { generateReceiptPdf } from "./receipt-pdf";
+import type { PastDueOrder } from "./past-due";
 
 export type NotifyEvent =
   | "order_created"
@@ -136,6 +137,99 @@ export function getReadyForPaymentEmailHtml(payload: ReadyForPaymentPayload): st
       Order reference: ${payload.orderNumber}
     </p>
   `.trim();
+}
+
+function buildPastDueReminderHtml(orders: PastDueOrder[], baseUrl: string): string {
+  const rows = orders
+    .map((o) => {
+      const total = `$${(Math.round(o.totalCents) / 100).toFixed(2)}`;
+      const url = `${baseUrl}/orders/${o.id}`.replace(/"/g, "&quot;");
+      return `
+        <tr>
+          <td style="padding: 10px 8px; border-bottom: 1px solid #e5e7eb; font-family: sans-serif; font-size: 14px; color: #1a1a1a;">${o.orderNumber}</td>
+          <td style="padding: 10px 8px; border-bottom: 1px solid #e5e7eb; font-family: sans-serif; font-size: 14px; color: #1a1a1a;">${total}</td>
+          <td style="padding: 10px 8px; border-bottom: 1px solid #e5e7eb; font-family: sans-serif; font-size: 14px;">
+            <a href="${url}" style="display: inline-block; padding: 6px 16px; background: #4a7c59; color: #fff; text-decoration: none; font-weight: 600; border-radius: 6px; font-size: 13px;">Pay now</a>
+          </td>
+        </tr>`;
+    })
+    .join("");
+
+  return `
+    <p style="margin: 0 0 1em; font-family: sans-serif; font-size: 16px; line-height: 1.5; color: #1a1a1a;">Hi,</p>
+    <p style="margin: 0 0 1em; font-family: sans-serif; font-size: 16px; line-height: 1.5; color: #1a1a1a;">
+      You have an outstanding balance on a previous laundry order. Please pay your balance before scheduling your next pickup.
+    </p>
+    <table style="width: 100%; border-collapse: collapse; margin-bottom: 1.5em;">
+      <thead>
+        <tr>
+          <th style="text-align: left; padding: 8px; border-bottom: 2px solid #d1fae5; font-family: sans-serif; font-size: 13px; color: #4a7c59;">Order</th>
+          <th style="text-align: left; padding: 8px; border-bottom: 2px solid #d1fae5; font-family: sans-serif; font-size: 13px; color: #4a7c59;">Balance</th>
+          <th style="padding: 8px; border-bottom: 2px solid #d1fae5;"></th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <p style="margin: 0; font-family: sans-serif; font-size: 14px; line-height: 1.5; color: #666;">
+      Questions? Reply to this email or contact us directly.
+    </p>
+  `.trim();
+}
+
+/**
+ * Sends a past-due balance reminder email to the customer.
+ * Fires when a customer attempts to schedule a new pickup with an outstanding balance.
+ */
+export async function sendPastDueReminderEmail(
+  customerId: string,
+  pastDueOrders: PastDueOrder[]
+): Promise<{ email: boolean }> {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn("[notify] RESEND_API_KEY not set; skipping past-due reminder email");
+    return { email: false };
+  }
+  if (pastDueOrders.length === 0) return { email: false };
+
+  const customer = await prisma.user.findUnique({
+    where: { id: customerId },
+    select: { email: true, name: true },
+  });
+  if (!customer?.email?.trim()) {
+    console.warn("[notify] No email for customer", customerId, "— skipping past-due reminder");
+    return { email: false };
+  }
+
+  const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
+  const fromEmail = process.env.RESEND_FROM_EMAIL ?? "notifications@example.com";
+  const totalOwed = `$${(pastDueOrders.reduce((s, o) => s + o.totalCents, 0) / 100).toFixed(2)}`;
+
+  try {
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    const sendResult = await resend.emails.send({
+      from: fromEmail,
+      to: customer.email.trim(),
+      subject: `Outstanding balance of ${totalOwed} – Doorstep Laundry`,
+      text: pastDueOrders
+        .map(
+          (o) =>
+            `Order ${o.orderNumber}: $${(o.totalCents / 100).toFixed(2)} — pay at ${baseUrl}/orders/${o.id}`
+        )
+        .join("\n"),
+      html: buildPastDueReminderHtml(pastDueOrders, baseUrl),
+    });
+    if (sendResult.error) {
+      const msg =
+        typeof sendResult.error === "object" && sendResult.error !== null && "message" in sendResult.error
+          ? String((sendResult.error as { message: unknown }).message)
+          : String(sendResult.error);
+      console.error("[notify] Resend past-due reminder error:", msg, "customer:", customer.email);
+      return { email: false };
+    }
+    return { email: true };
+  } catch (e) {
+    console.error("[notify] sendPastDueReminderEmail exception:", e);
+    return { email: false };
+  }
 }
 
 export async function sendOrderNotification(
