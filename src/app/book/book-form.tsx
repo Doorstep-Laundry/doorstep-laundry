@@ -980,6 +980,13 @@ export function BookForm({
           </div>
         )}
 
+        {!isEdit && (
+          <p className="text-xs text-fern-500 leading-relaxed">
+            By booking you acknowledge our{" "}
+            <a href="/legal/terms" className="underline hover:text-fern-700" target="_blank" rel="noopener noreferrer">service terms</a>,
+            including our payment and liability policies.
+          </p>
+        )}
         <button
           type="submit"
           disabled={loading || pastDueOrderIds.length > 0 || (pendingSave?.mode === "order" && !!verifyResult?.suggested)}

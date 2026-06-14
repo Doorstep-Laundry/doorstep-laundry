@@ -203,6 +203,11 @@ export default async function AppHomePage() {
             unoptimized
           />
           <span>Doorstep Laundry Service · Las Cruces, NM</span>
+          <div className="flex flex-wrap justify-center gap-x-5 gap-y-1">
+            <Link href="/legal/terms" className="hover:text-fern-700 transition-colors">Terms of Service</Link>
+            <Link href="/legal/privacy" className="hover:text-fern-700 transition-colors">Privacy Policy</Link>
+            <Link href="/legal/sms" className="hover:text-fern-700 transition-colors">SMS Policy</Link>
+          </div>
         </div>
       </footer>
     </div>

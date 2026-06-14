@@ -7,8 +7,6 @@ const inputClass =
   "mt-1 block w-full rounded-lg border border-fern-200 bg-white px-3 py-2.5 text-fern-900 placeholder-fern-400 focus:border-fern-500 focus:outline-none focus:ring-2 focus:ring-fern-500/20 transition-colors";
 const labelClass = "block text-sm font-medium text-fern-700";
 
-const SMS_CONSENT_TEXT =
-  "By checking this box and providing your phone number, you agree to receive order status updates via SMS from Doorstep Laundry. Message and data rates may apply. Reply STOP to unsubscribe.";
 
 export function AccountForm({
   name,
@@ -110,7 +108,10 @@ export function AccountForm({
             className="mt-1 h-4 w-4 shrink-0 rounded border-fern-300 text-fern-600 focus:ring-fern-500"
           />
           <label htmlFor="account-sms-consent" className="text-sm text-fern-700 leading-snug cursor-pointer">
-            {SMS_CONSENT_TEXT}
+            By checking this box and providing your phone number, you agree to receive order status
+            updates via SMS from Doorstep Laundry. Message and data rates may apply. Reply STOP to
+            unsubscribe. See our{" "}
+            <a href="/legal/sms" className="underline hover:text-fern-900">SMS Policy</a>.
           </label>
         </div>
       </div>

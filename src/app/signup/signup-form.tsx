@@ -143,6 +143,12 @@ export function SignupForm() {
             Sign up with Google
           </button>
         )}
+        <p className="text-center text-xs text-fern-500 leading-relaxed">
+          By creating an account you agree to our{" "}
+          <Link href="/legal/terms" className="underline hover:text-fern-700">Terms of Service</Link>
+          {" "}and{" "}
+          <Link href="/legal/privacy" className="underline hover:text-fern-700">Privacy Policy</Link>.
+        </p>
         <p className="text-center text-sm text-fern-600">
           Already have an account?{" "}
           <Link href="/login" className="font-medium text-fern-600 hover:text-fern-700">
