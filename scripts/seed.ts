@@ -67,6 +67,22 @@ function days(n: number): Date {
   return d;
 }
 
+/** Today as YYYYMMDD, e.g. "20260615" */
+function datePrefix(): string {
+  const d = new Date();
+  return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/** Format as ORDER-YYYYMMDD-#### */
+function orderNum(seq: number): string {
+  return `ORDER-${datePrefix()}-${String(seq).padStart(4, "0")}`;
+}
+
+/** Format as ORDER-YYYYMMDD-####-L# */
+function loadCode(seq: number, loadNum: number): string {
+  return `${orderNum(seq)}-L${loadNum}`;
+}
+
 async function upsertUser(
   prisma: PrismaClient,
   email: string,
@@ -102,81 +118,82 @@ function buildDevOrders(
   const h = (...statuses: OrderStatus[]): HistorySeed[] =>
     statuses.map((status) => ({ status, changedById: adminId }));
 
+  // Dev sequences start at 9001 — safely above any real order sequence for the day.
   return [
     // 1 ── scheduled
     {
-      order: { orderNumber: "SEED-D001", customerId: c1Id, pickupAddressId: c1Addr, deliveryAddressId: c1Addr, status: "scheduled", pickupDate: days(2), deliveryDate: days(4), numberOfLoads: 1, totalCents: 0, paymentStatus: "pending" },
-      loads: [{ loadNumber: 1, loadCode: "SEED-D001-L1", status: "scheduled" }],
+      order: { orderNumber: orderNum(9001), customerId: c1Id, pickupAddressId: c1Addr, deliveryAddressId: c1Addr, status: "scheduled", pickupDate: days(2), deliveryDate: days(4), numberOfLoads: 1, totalCents: 0, paymentStatus: "pending" },
+      loads: [{ loadNumber: 1, loadCode: loadCode(9001, 1), status: "scheduled" }],
       history: h("scheduled"),
     },
     // 2 ── picked_up
     {
-      order: { orderNumber: "SEED-D002", customerId: c1Id, pickupAddressId: c1Addr, deliveryAddressId: c1Addr, status: "picked_up", pickupDate: days(0), deliveryDate: days(2), numberOfLoads: 2, totalCents: 0, paymentStatus: "pending" },
+      order: { orderNumber: orderNum(9002), customerId: c1Id, pickupAddressId: c1Addr, deliveryAddressId: c1Addr, status: "picked_up", pickupDate: days(0), deliveryDate: days(2), numberOfLoads: 2, totalCents: 0, paymentStatus: "pending" },
       loads: [
-        { loadNumber: 1, loadCode: "SEED-D002-L1", status: "picked_up" },
-        { loadNumber: 2, loadCode: "SEED-D002-L2", status: "picked_up" },
+        { loadNumber: 1, loadCode: loadCode(9002, 1), status: "picked_up" },
+        { loadNumber: 2, loadCode: loadCode(9002, 2), status: "picked_up" },
       ],
       history: h("scheduled", "picked_up"),
     },
     // 3 ── ready_for_wash (loads assigned to shelf locations)
     {
-      order: { orderNumber: "SEED-D003", customerId: c2Id, pickupAddressId: c2Addr, deliveryAddressId: c2Addr, status: "ready_for_wash", pickupDate: days(-1), deliveryDate: days(1), numberOfLoads: 2, totalCents: 0, paymentStatus: "pending" },
+      order: { orderNumber: orderNum(9003), customerId: c2Id, pickupAddressId: c2Addr, deliveryAddressId: c2Addr, status: "ready_for_wash", pickupDate: days(-1), deliveryDate: days(1), numberOfLoads: 2, totalCents: 0, paymentStatus: "pending" },
       loads: [
-        { loadNumber: 1, loadCode: "SEED-D003-L1", status: "ready_for_wash", location: "A1" },
-        { loadNumber: 2, loadCode: "SEED-D003-L2", status: "ready_for_wash", location: "A2" },
+        { loadNumber: 1, loadCode: loadCode(9003, 1), status: "ready_for_wash", location: "Shelf In 1" },
+        { loadNumber: 2, loadCode: loadCode(9003, 2), status: "ready_for_wash", location: "Shelf In 1" },
       ],
       history: h("scheduled", "picked_up", "ready_for_wash"),
     },
     // 4 ── in_progress (loads actively in wash cycle)
     {
-      order: { orderNumber: "SEED-D004", customerId: c2Id, pickupAddressId: c2Addr, deliveryAddressId: c2Addr, status: "in_progress", pickupDate: days(-2), deliveryDate: days(0), numberOfLoads: 3, totalCents: 0, paymentStatus: "pending" },
+      order: { orderNumber: orderNum(9004), customerId: c2Id, pickupAddressId: c2Addr, deliveryAddressId: c2Addr, status: "in_progress", pickupDate: days(-2), deliveryDate: days(0), numberOfLoads: 3, totalCents: 0, paymentStatus: "pending" },
       loads: [
-        { loadNumber: 1, loadCode: "SEED-D004-L1", status: "washing", location: "A3" },
-        { loadNumber: 2, loadCode: "SEED-D004-L2", status: "drying",  location: "A4" },
-        { loadNumber: 3, loadCode: "SEED-D004-L3", status: "folded",  location: "A5" },
+        { loadNumber: 1, loadCode: loadCode(9004, 1), status: "washing", location: "Washer 1" },
+        { loadNumber: 2, loadCode: loadCode(9004, 2), status: "drying",  location: "Dryer 1" },
+        { loadNumber: 3, loadCode: loadCode(9004, 3), status: "folded",  location: "Table 1" },
       ],
       history: h("scheduled", "picked_up", "ready_for_wash", "in_progress"),
     },
     // 5 ── in_progress (late stage — one load cleaned awaiting weigh-in, one already ready_for_delivery)
     {
-      order: { orderNumber: "SEED-D005", customerId: c1Id, pickupAddressId: c1Addr, deliveryAddressId: c1Addr, status: "in_progress", pickupDate: days(-3), deliveryDate: days(0), numberOfLoads: 2, totalCents: 0, paymentStatus: "pending" },
+      order: { orderNumber: orderNum(9005), customerId: c1Id, pickupAddressId: c1Addr, deliveryAddressId: c1Addr, status: "in_progress", pickupDate: days(-3), deliveryDate: days(0), numberOfLoads: 2, totalCents: 0, paymentStatus: "pending" },
       loads: [
-        { loadNumber: 1, loadCode: "SEED-D005-L1", status: "cleaned",           location: "B1" },
-        { loadNumber: 2, loadCode: "SEED-D005-L2", status: "ready_for_delivery", location: "B2", weightLbs: 10 },
+        { loadNumber: 1, loadCode: loadCode(9005, 1), status: "cleaned",            location: "Table 1" },
+        { loadNumber: 2, loadCode: loadCode(9005, 2), status: "ready_for_delivery", location: "Shelf out 1", weightLbs: 10 },
       ],
       history: h("scheduled", "picked_up", "ready_for_wash", "in_progress"),
     },
     // 6 ── ready_for_delivery (all loads weighed, payment due — 20 lbs × $1.50)
     {
-      order: { orderNumber: "SEED-D006", customerId: c2Id, pickupAddressId: c2Addr, deliveryAddressId: c2Addr, status: "ready_for_delivery", pickupDate: days(-4), deliveryDate: days(-1), numberOfLoads: 2, totalCents: 3000, paymentStatus: "ready_for_payment" },
+      order: { orderNumber: orderNum(9006), customerId: c2Id, pickupAddressId: c2Addr, deliveryAddressId: c2Addr, status: "ready_for_delivery", pickupDate: days(-4), deliveryDate: days(-1), numberOfLoads: 2, totalCents: 3000, paymentStatus: "ready_for_payment" },
       loads: [
-        { loadNumber: 1, loadCode: "SEED-D006-L1", status: "ready_for_delivery", location: "C1", weightLbs: 8  },
-        { loadNumber: 2, loadCode: "SEED-D006-L2", status: "ready_for_delivery", location: "C2", weightLbs: 12 },
+        { loadNumber: 1, loadCode: loadCode(9006, 1), status: "ready_for_delivery", location: "Shelf out 1", weightLbs: 8  },
+        { loadNumber: 2, loadCode: loadCode(9006, 2), status: "ready_for_delivery", location: "Shelf out 1", weightLbs: 12 },
       ],
       history: h("scheduled", "picked_up", "ready_for_wash", "in_progress", "ready_for_delivery"),
     },
     // 7 ── out_for_delivery (16 lbs × $1.50)
     {
-      order: { orderNumber: "SEED-D007", customerId: c1Id, pickupAddressId: c1Addr, deliveryAddressId: c1Addr, status: "out_for_delivery", pickupDate: days(-5), deliveryDate: days(0), numberOfLoads: 2, totalCents: 2400, paymentStatus: "ready_for_payment" },
+      order: { orderNumber: orderNum(9007), customerId: c1Id, pickupAddressId: c1Addr, deliveryAddressId: c1Addr, status: "out_for_delivery", pickupDate: days(-5), deliveryDate: days(0), numberOfLoads: 2, totalCents: 2400, paymentStatus: "ready_for_payment" },
       loads: [
-        { loadNumber: 1, loadCode: "SEED-D007-L1", status: "out_for_delivery", location: "D1", weightLbs: 7 },
-        { loadNumber: 2, loadCode: "SEED-D007-L2", status: "out_for_delivery", location: "D2", weightLbs: 9 },
+        { loadNumber: 1, loadCode: loadCode(9007, 1), status: "out_for_delivery", location: "Shelf out 1", weightLbs: 7 },
+        { loadNumber: 2, loadCode: loadCode(9007, 2), status: "out_for_delivery", location: "Shelf out 1", weightLbs: 9 },
       ],
       history: h("scheduled", "picked_up", "ready_for_wash", "in_progress", "ready_for_delivery", "out_for_delivery"),
     },
     // 8 ── delivered, paid via Stripe (16 lbs × $1.50)
     {
-      order: { orderNumber: "SEED-D008", customerId: c2Id, pickupAddressId: c2Addr, deliveryAddressId: c2Addr, status: "delivered", pickupDate: days(-7), deliveryDate: days(-3), numberOfLoads: 2, totalCents: 2400, paymentStatus: "paid", stripePaymentId: "pi_seed_delivered_001" },
+      order: { orderNumber: orderNum(9008), customerId: c2Id, pickupAddressId: c2Addr, deliveryAddressId: c2Addr, status: "delivered", pickupDate: days(-7), deliveryDate: days(-3), numberOfLoads: 2, totalCents: 2400, paymentStatus: "paid", stripePaymentId: "pi_seed_delivered_001" },
       loads: [
-        { loadNumber: 1, loadCode: "SEED-D008-L1", status: "delivered", location: "E1", weightLbs: 10 },
-        { loadNumber: 2, loadCode: "SEED-D008-L2", status: "delivered", location: "E2", weightLbs: 6  },
+        { loadNumber: 1, loadCode: loadCode(9008, 1), status: "delivered", location: "Shelf out 1", weightLbs: 10 },
+        { loadNumber: 2, loadCode: loadCode(9008, 2), status: "delivered", location: "Shelf out 1", weightLbs: 6  },
       ],
       history: h("scheduled", "picked_up", "ready_for_wash", "in_progress", "ready_for_delivery", "out_for_delivery", "delivered"),
     },
     // 9 ── cancelled before pickup
     {
-      order: { orderNumber: "SEED-D009", customerId: c1Id, pickupAddressId: c1Addr, deliveryAddressId: c1Addr, status: "cancelled", pickupDate: days(-1), deliveryDate: days(2), numberOfLoads: 1, totalCents: 0, paymentStatus: "pending" },
-      loads: [{ loadNumber: 1, loadCode: "SEED-D009-L1", status: "scheduled" }],
+      order: { orderNumber: orderNum(9009), customerId: c1Id, pickupAddressId: c1Addr, deliveryAddressId: c1Addr, status: "cancelled", pickupDate: days(-1), deliveryDate: days(2), numberOfLoads: 1, totalCents: 0, paymentStatus: "pending" },
+      loads: [{ loadNumber: 1, loadCode: loadCode(9009, 1), status: "scheduled" }],
       history: h("scheduled", "cancelled"),
     },
   ];
@@ -192,64 +209,65 @@ function buildTestOrders(
   const h = (...statuses: OrderStatus[]): HistorySeed[] =>
     statuses.map((status) => ({ status, changedById: adminId }));
 
+  // Test sequences start at 9001 — safely above any real order sequence for the day.
   return [
     {
-      order: { orderNumber: "SEED-T001", customerId: c1Id, pickupAddressId: c1Addr, deliveryAddressId: c1Addr, status: "scheduled", pickupDate: days(1), deliveryDate: days(3), numberOfLoads: 1, totalCents: 0, paymentStatus: "pending" },
-      loads: [{ loadNumber: 1, loadCode: "SEED-T001-L1", status: "scheduled" }],
+      order: { orderNumber: orderNum(9001), customerId: c1Id, pickupAddressId: c1Addr, deliveryAddressId: c1Addr, status: "scheduled", pickupDate: days(1), deliveryDate: days(3), numberOfLoads: 1, totalCents: 0, paymentStatus: "pending" },
+      loads: [{ loadNumber: 1, loadCode: loadCode(9001, 1), status: "scheduled" }],
       history: h("scheduled"),
     },
     {
-      order: { orderNumber: "SEED-T002", customerId: c1Id, pickupAddressId: c1Addr, deliveryAddressId: c1Addr, status: "picked_up", pickupDate: days(0), deliveryDate: days(2), numberOfLoads: 2, totalCents: 0, paymentStatus: "pending" },
+      order: { orderNumber: orderNum(9002), customerId: c1Id, pickupAddressId: c1Addr, deliveryAddressId: c1Addr, status: "picked_up", pickupDate: days(0), deliveryDate: days(2), numberOfLoads: 2, totalCents: 0, paymentStatus: "pending" },
       loads: [
-        { loadNumber: 1, loadCode: "SEED-T002-L1", status: "picked_up" },
-        { loadNumber: 2, loadCode: "SEED-T002-L2", status: "picked_up" },
+        { loadNumber: 1, loadCode: loadCode(9002, 1), status: "picked_up" },
+        { loadNumber: 2, loadCode: loadCode(9002, 2), status: "picked_up" },
       ],
       history: h("scheduled", "picked_up"),
     },
     {
-      order: { orderNumber: "SEED-T003", customerId: c2Id, pickupAddressId: c2Addr, deliveryAddressId: c2Addr, status: "ready_for_wash", pickupDate: days(-1), deliveryDate: days(1), numberOfLoads: 2, totalCents: 0, paymentStatus: "pending" },
+      order: { orderNumber: orderNum(9003), customerId: c2Id, pickupAddressId: c2Addr, deliveryAddressId: c2Addr, status: "ready_for_wash", pickupDate: days(-1), deliveryDate: days(1), numberOfLoads: 2, totalCents: 0, paymentStatus: "pending" },
       loads: [
-        { loadNumber: 1, loadCode: "SEED-T003-L1", status: "ready_for_wash", location: "A1" },
-        { loadNumber: 2, loadCode: "SEED-T003-L2", status: "ready_for_wash", location: "A2" },
+        { loadNumber: 1, loadCode: loadCode(9003, 1), status: "ready_for_wash", location: "Shelf In 1" },
+        { loadNumber: 2, loadCode: loadCode(9003, 2), status: "ready_for_wash", location: "Shelf In 1" },
       ],
       history: h("scheduled", "picked_up", "ready_for_wash"),
     },
     {
-      order: { orderNumber: "SEED-T004", customerId: c1Id, pickupAddressId: c1Addr, deliveryAddressId: c1Addr, status: "in_progress", pickupDate: days(-2), deliveryDate: days(1), numberOfLoads: 3, totalCents: 0, paymentStatus: "pending" },
+      order: { orderNumber: orderNum(9004), customerId: c1Id, pickupAddressId: c1Addr, deliveryAddressId: c1Addr, status: "in_progress", pickupDate: days(-2), deliveryDate: days(1), numberOfLoads: 3, totalCents: 0, paymentStatus: "pending" },
       loads: [
-        { loadNumber: 1, loadCode: "SEED-T004-L1", status: "washing", location: "B1" },
-        { loadNumber: 2, loadCode: "SEED-T004-L2", status: "drying",  location: "B2" },
-        { loadNumber: 3, loadCode: "SEED-T004-L3", status: "folded",  location: "B3" },
+        { loadNumber: 1, loadCode: loadCode(9004, 1), status: "washing", location: "Washer 1" },
+        { loadNumber: 2, loadCode: loadCode(9004, 2), status: "drying",  location: "Dryer 1" },
+        { loadNumber: 3, loadCode: loadCode(9004, 3), status: "folded",  location: "Table 1" },
       ],
       history: h("scheduled", "picked_up", "ready_for_wash", "in_progress"),
     },
     {
-      order: { orderNumber: "SEED-T005", customerId: c2Id, pickupAddressId: c2Addr, deliveryAddressId: c2Addr, status: "ready_for_delivery", pickupDate: days(-3), deliveryDate: days(0), numberOfLoads: 2, totalCents: 3000, paymentStatus: "ready_for_payment" },
+      order: { orderNumber: orderNum(9005), customerId: c2Id, pickupAddressId: c2Addr, deliveryAddressId: c2Addr, status: "ready_for_delivery", pickupDate: days(-3), deliveryDate: days(0), numberOfLoads: 2, totalCents: 3000, paymentStatus: "ready_for_payment" },
       loads: [
-        { loadNumber: 1, loadCode: "SEED-T005-L1", status: "ready_for_delivery", location: "C1", weightLbs: 8  },
-        { loadNumber: 2, loadCode: "SEED-T005-L2", status: "ready_for_delivery", location: "C2", weightLbs: 12 },
+        { loadNumber: 1, loadCode: loadCode(9005, 1), status: "ready_for_delivery", location: "Shelf out 1", weightLbs: 8  },
+        { loadNumber: 2, loadCode: loadCode(9005, 2), status: "ready_for_delivery", location: "Shelf out 1", weightLbs: 12 },
       ],
       history: h("scheduled", "picked_up", "ready_for_wash", "in_progress", "ready_for_delivery"),
     },
     {
-      order: { orderNumber: "SEED-T006", customerId: c1Id, pickupAddressId: c1Addr, deliveryAddressId: c1Addr, status: "out_for_delivery", pickupDate: days(-4), deliveryDate: days(0), numberOfLoads: 2, totalCents: 2400, paymentStatus: "ready_for_payment" },
+      order: { orderNumber: orderNum(9006), customerId: c1Id, pickupAddressId: c1Addr, deliveryAddressId: c1Addr, status: "out_for_delivery", pickupDate: days(-4), deliveryDate: days(0), numberOfLoads: 2, totalCents: 2400, paymentStatus: "ready_for_payment" },
       loads: [
-        { loadNumber: 1, loadCode: "SEED-T006-L1", status: "out_for_delivery", location: "D1", weightLbs: 7 },
-        { loadNumber: 2, loadCode: "SEED-T006-L2", status: "out_for_delivery", location: "D2", weightLbs: 9 },
+        { loadNumber: 1, loadCode: loadCode(9006, 1), status: "out_for_delivery", location: "Shelf out 1", weightLbs: 7 },
+        { loadNumber: 2, loadCode: loadCode(9006, 2), status: "out_for_delivery", location: "Shelf out 1", weightLbs: 9 },
       ],
       history: h("scheduled", "picked_up", "ready_for_wash", "in_progress", "ready_for_delivery", "out_for_delivery"),
     },
     {
-      order: { orderNumber: "SEED-T007", customerId: c2Id, pickupAddressId: c2Addr, deliveryAddressId: c2Addr, status: "delivered", pickupDate: days(-5), deliveryDate: days(-2), numberOfLoads: 2, totalCents: 2400, paymentStatus: "paid", stripePaymentId: "pi_seed_test_delivered_001" },
+      order: { orderNumber: orderNum(9007), customerId: c2Id, pickupAddressId: c2Addr, deliveryAddressId: c2Addr, status: "delivered", pickupDate: days(-5), deliveryDate: days(-2), numberOfLoads: 2, totalCents: 2400, paymentStatus: "paid", stripePaymentId: "pi_seed_test_delivered_001" },
       loads: [
-        { loadNumber: 1, loadCode: "SEED-T007-L1", status: "delivered", location: "E1", weightLbs: 10 },
-        { loadNumber: 2, loadCode: "SEED-T007-L2", status: "delivered", location: "E2", weightLbs: 6  },
+        { loadNumber: 1, loadCode: loadCode(9007, 1), status: "delivered", location: "Shelf out 1", weightLbs: 10 },
+        { loadNumber: 2, loadCode: loadCode(9007, 2), status: "delivered", location: "Shelf out 1", weightLbs: 6  },
       ],
       history: h("scheduled", "picked_up", "ready_for_wash", "in_progress", "ready_for_delivery", "out_for_delivery", "delivered"),
     },
     {
-      order: { orderNumber: "SEED-T008", customerId: c1Id, pickupAddressId: c1Addr, deliveryAddressId: c1Addr, status: "cancelled", pickupDate: days(-1), deliveryDate: days(2), numberOfLoads: 1, totalCents: 0, paymentStatus: "pending" },
-      loads: [{ loadNumber: 1, loadCode: "SEED-T008-L1", status: "scheduled" }],
+      order: { orderNumber: orderNum(9008), customerId: c1Id, pickupAddressId: c1Addr, deliveryAddressId: c1Addr, status: "cancelled", pickupDate: days(-1), deliveryDate: days(2), numberOfLoads: 1, totalCents: 0, paymentStatus: "pending" },
+      loads: [{ loadNumber: 1, loadCode: loadCode(9008, 1), status: "scheduled" }],
       history: h("scheduled", "cancelled"),
     },
   ];
@@ -299,6 +317,22 @@ async function main() {
       update: {},
       create: { key: "price_per_pound_cents", value: "150" },
     });
+
+    // Seed load locations (upsert so re-runs are safe)
+    const LOCATIONS = [
+      { name: "Shelf In 1",  sortOrder: 1 },
+      { name: "Shelf out 1", sortOrder: 2 },
+      { name: "Table 1",     sortOrder: 3 },
+      { name: "Washer 1",    sortOrder: 4 },
+      { name: "Dryer 1",     sortOrder: 5 },
+    ];
+    for (const loc of LOCATIONS) {
+      await prisma.loadLocation.upsert({
+        where: { name: loc.name },
+        update: { sortOrder: loc.sortOrder },
+        create: loc,
+      });
+    }
 
     // Create orders
     const orderSeeds = mode === "dev"
