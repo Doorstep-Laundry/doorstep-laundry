@@ -150,7 +150,7 @@ function buildDevOrders(
       loads: [
         { loadNumber: 1, loadCode: loadCode(9004, 1), status: "washing", location: "Washer 1" },
         { loadNumber: 2, loadCode: loadCode(9004, 2), status: "drying",  location: "Dryer 1" },
-        { loadNumber: 3, loadCode: loadCode(9004, 3), status: "folded",  location: "Table 1" },
+        { loadNumber: 3, loadCode: loadCode(9004, 3), status: "folding",  location: "Table 1" },
       ],
       history: h("scheduled", "picked_up", "ready_for_wash", "in_progress"),
     },
@@ -237,7 +237,7 @@ function buildTestOrders(
       loads: [
         { loadNumber: 1, loadCode: loadCode(9004, 1), status: "washing", location: "Washer 1" },
         { loadNumber: 2, loadCode: loadCode(9004, 2), status: "drying",  location: "Dryer 1" },
-        { loadNumber: 3, loadCode: loadCode(9004, 3), status: "folded",  location: "Table 1" },
+        { loadNumber: 3, loadCode: loadCode(9004, 3), status: "folding",  location: "Table 1" },
       ],
       history: h("scheduled", "picked_up", "ready_for_wash", "in_progress"),
     },

@@ -11,7 +11,7 @@ const VALID_LOAD_STATUSES: LoadStatus[] = [
   "ready_for_wash",
   "washing",
   "drying",
-  "folded",
+  "folding",
   "cleaned",
   "ready_for_delivery",
   "out_for_delivery",

@@ -25,7 +25,7 @@ export type LoadStatus =
   | "ready_for_wash"
   | "washing"
   | "drying"
-  | "folded"
+  | "folding"
   | "cleaned"
   | "ready_for_delivery"
   | "out_for_delivery"
@@ -33,7 +33,7 @@ export type LoadStatus =
 
 export type LoadRow = { status: string; location?: string | null; weightLbs?: number | null };
 
-const WASH_IN_PROGRESS_STATUSES = ["washing", "drying", "folded", "cleaned", "ready_for_delivery"];
+const WASH_IN_PROGRESS_STATUSES = ["washing", "drying", "folding", "cleaned", "ready_for_delivery"];
 
 /**
  * Compute order status from load statuses (for sync when a load is updated).

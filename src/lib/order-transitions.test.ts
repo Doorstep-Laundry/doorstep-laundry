@@ -69,7 +69,7 @@ describe("getOrderStatusFromLoads", () => {
   it("in_progress + loads still in wash stages → null (order stays in_progress, no change)", () => {
     const loads: LoadRow[] = [
       { status: "drying", location: "A1" },
-      { status: "folded", location: "A2" },
+      { status: "folding", location: "A2" },
     ];
     expect(getOrderStatusFromLoads("in_progress", loads)).toBeNull();
   });

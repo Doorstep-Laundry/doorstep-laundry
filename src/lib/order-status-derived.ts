@@ -4,7 +4,7 @@ export type LoadStatus =
   | "ready_for_wash"
   | "washing"
   | "drying"
-  | "folded"
+  | "folding"
   | "cleaned"
   | "ready_for_delivery"
   | "out_for_delivery"
@@ -22,7 +22,7 @@ export function getDerivedOrderStatus(
       s === "ready_for_wash" ||
       s === "washing" ||
       s === "drying" ||
-      s === "folded" ||
+      s === "folding" ||
       s === "cleaned"
   );
   if (anyStarted) return "in_progress";

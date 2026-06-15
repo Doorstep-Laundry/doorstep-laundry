@@ -24,7 +24,7 @@ const LOAD_STATUS_LABEL: Record<string, string> = {
   ready_for_wash: "Ready for wash",
   washing: "Washing",
   drying: "Drying",
-  folded: "Folded",
+  folding: "Folding",
   cleaned: "Needs weight",
   ready_for_delivery: "Ready for delivery",
   out_for_delivery: "Out for delivery",
