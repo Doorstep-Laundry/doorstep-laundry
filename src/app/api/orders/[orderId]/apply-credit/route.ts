@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
-const ELIGIBLE_STATUSES = ["picked_up", "waiting_for_payment"];
+const ELIGIBLE_STATUSES = ["picked_up", "in_progress", "ready_for_delivery"];
 
 export async function POST(
   _request: Request,
@@ -39,7 +39,7 @@ export async function POST(
   }
   if (!ELIGIBLE_STATUSES.includes(order.status)) {
     return NextResponse.json(
-      { error: "Credits can only be applied to orders that are picked up or waiting for payment" },
+      { error: "Credits can only be applied to orders that are picked up, in progress, or ready for delivery" },
       { status: 400 }
     );
   }

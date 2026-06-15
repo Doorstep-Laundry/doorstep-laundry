@@ -1,19 +1,17 @@
 import type { OrderStatus } from "@prisma/client";
 
-/** Order statuses shown on the Wash page (excludes scheduled, delivery pipeline, delivered, cancelled). */
+/** Order statuses shown on the Wash page. */
 export const WASH_VISIBLE_ORDER_STATUSES: OrderStatus[] = [
   "ready_for_wash",
   "in_progress",
-  "waiting_for_payment",
   "picked_up",
 ];
 
-/** Table sort: ready_for_wash → in_progress → waiting_for_payment → picked_up (last). */
+/** Table sort: ready_for_wash → in_progress → picked_up (last). */
 const STATUS_SORT_INDEX: Record<string, number> = {
   ready_for_wash: 0,
   in_progress: 1,
-  waiting_for_payment: 2,
-  picked_up: 3,
+  picked_up: 2,
 };
 
 /** Sort by wash status order, then pickup date ascending. */

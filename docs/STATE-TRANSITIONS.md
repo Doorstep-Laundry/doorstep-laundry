@@ -21,9 +21,17 @@ scheduled → picked_up → ready_for_wash → in_progress → ready_for_deliver
 
 ### Payment status
 
-Payment is tracked separately via a `payment_status` field (not part of the order status flow). When an order transitions to `ready_for_delivery`, `payment_status` is set to `ready_for_payment`. Payment can be collected at any point from `ready_for_delivery` through `delivered` without affecting the order status.
+Payment is tracked separately via a `paymentStatus` field (`PaymentStatus` enum) on the Order model — it is not part of the order status flow.
 
-> **Note:** The current code uses `waiting_for_payment` as an order status. This should be replaced by a dedicated `payment_status` field so that payment state does not interrupt the main order flow.
+| Value | Meaning |
+|---|---|
+| `pending` | No payment action yet (default) |
+| `ready_for_payment` | Set automatically when order transitions to `ready_for_delivery` |
+| `paid` | Stripe payment confirmed |
+| `waived` | Admin waived the balance |
+| `credited` | All loads covered by load credits |
+
+Payment can be collected at any point from `ready_for_delivery` through `delivered` without affecting the order status.
 
 ---
 
@@ -32,9 +40,9 @@ Payment is tracked separately via a `payment_status` field (not part of the orde
 Load statuses mirror the parent order for the early and late stages of the lifecycle. In the middle — while washing is happening — loads move independently.
 
 ```
-scheduled → picked_up → in_progress → washing → drying → folded → cleaned → ready_for_delivery
-                                                                                      ↑
-                                                               (each load gets here independently)
+scheduled → picked_up → ready_for_wash → washing → drying → folded → cleaned → ready_for_delivery
+                                                                                        ↑
+                                                                 (each load gets here independently)
 
 Once ALL loads reach ready_for_delivery → order transitions to ready_for_delivery
 
@@ -47,7 +55,7 @@ Order ready_for_delivery → out_for_delivery → delivered
 |---|---|---|
 | `scheduled` | ✅ yes | Load created; order not yet picked up |
 | `picked_up` | ✅ yes | Order picked up; load in transit to facility |
-| `in_progress` | ✅ yes | Load at facility; washing has not started yet |
+| `ready_for_wash` | ✅ yes | Order at facility; all loads moved to facility and ready to wash |
 | `washing` | — | In washer |
 | `drying` | — | In dryer |
 | `folded` | — | Folded |
@@ -103,7 +111,7 @@ These fire automatically whenever a load is updated via `PATCH /api/order-loads/
 
 | Current order status | Load condition | Order auto-transitions to |
 |---|---|---|
-| `picked_up` | Any load advances past `picked_up` | `in_progress` |
+| `ready_for_wash` | Any load advances to `washing` or beyond | `in_progress` |
 | `in_progress` | All loads are `ready_for_delivery` | `ready_for_delivery` |
 | `out_for_delivery`, `delivered`, `cancelled` | _(never auto-syncs)_ | — |
 
@@ -115,7 +123,7 @@ These fire automatically whenever a load is updated via `PATCH /api/order-loads/
 |---|---|---|
 | `scheduled` | `scheduled` | — |
 | `picked_up` | `picked_up` | — |
-| `in_progress` | `in_progress` | — |
+| `ready_for_wash` or `in_progress` | `ready_for_wash` | — |
 
 ---
 
@@ -123,14 +131,14 @@ These fire automatically whenever a load is updated via `PATCH /api/order-loads/
 
 ### Manual transitions (via `PATCH /api/order-loads/[loadId]`)
 
-Once a load is `in_progress`, staff can advance it through the wash stages:
+Once a load is `ready_for_wash`, staff can advance it through the wash stages:
 
 ```
-in_progress → washing → drying → folded → cleaned → ready_for_delivery
+ready_for_wash → washing → drying → folded → cleaned → ready_for_delivery
 ```
 
 Guards:
-- Load status can only be set while the order is `in_progress` (loads are locked once the order reaches `ready_for_delivery` or later).
+- Load status can only be set while the order is `ready_for_wash` or `in_progress` (loads are locked once the order reaches `ready_for_delivery` or later).
 - Setting `weightLbs` on a `cleaned` load automatically advances it to `ready_for_delivery`.
 - A load reaching `ready_for_delivery` does not change the order status on its own — the order only advances when **all** loads are `ready_for_delivery`.
 
@@ -139,7 +147,7 @@ Guards:
 | Trigger | All loads transition to |
 |---|---|
 | Order transitions to `picked_up` (driver pickup) | `picked_up` |
-| Order transitions to `in_progress` | `in_progress` |
+| Order transitions to `ready_for_wash` | `ready_for_wash` |
 | Order transitions to `out_for_delivery` (driver delivery run) | `out_for_delivery` |
 | Order transitions to `delivered` | `delivered` |
 

@@ -19,7 +19,6 @@ const statusLabel: Record<string, string> = {
   picked_up: "Picked up",
   ready_for_wash: "Ready for wash",
   in_progress: "In progress",
-  waiting_for_payment: "Waiting for payment",
   ready_for_delivery: "Ready for delivery",
   out_for_delivery: "Out for delivery",
   delivered: "Delivered",
@@ -61,7 +60,7 @@ export default async function OrderDetailPage({
   const creditedLoadCount = order.orderLoads?.filter((l) => l.creditedLoad).length ?? 0;
 
   let displayTotalCents = order.totalCents;
-  if (order.status === "waiting_for_payment" && order.orderLoads?.length) {
+  if (order.paymentStatus === "ready_for_payment" && order.orderLoads?.length) {
     const { getEffectivePricing, computeOrderTotalWithTax } = await import("@/lib/order-total");
     const { getGrtPercent } = await import("@/lib/settings");
     const [setting, grtPercent] = await Promise.all([
@@ -106,11 +105,11 @@ export default async function OrderDetailPage({
             <div className="flex items-center gap-2 flex-wrap">
               {role === "customer" &&
                 creditedLoads > 0 &&
-                ["picked_up", "waiting_for_payment"].includes(order.status) &&
+                ["picked_up", "in_progress", "ready_for_delivery"].includes(order.status) &&
                 order.orderLoads?.some((l) => !l.creditedLoad) && (
                   <UseCreditButton orderId={order.id} />
               )}
-              {order.status === "waiting_for_payment" && !order.stripePaymentId && (
+              {order.paymentStatus === "ready_for_payment" && !order.stripePaymentId && (
                 <>
                   <PayButton orderId={order.id} variant="icon" />
                   <ResendPaymentButton orderId={order.id} />
@@ -207,7 +206,7 @@ export default async function OrderDetailPage({
                         <li key={load.loadNumber} className="flex items-center gap-2">
                           <span>
                             Load {load.loadNumber}
-                            {order.status === "waiting_for_payment" && (
+                            {order.paymentStatus === "ready_for_payment" && (
                               <>: {(load.weightLbs ?? 0).toFixed(1)} lbs</>
                             )}
                             {opts.length > 0 && (
@@ -228,7 +227,7 @@ export default async function OrderDetailPage({
                 </dd>
               </div>
             )}
-            {order.status === "waiting_for_payment" && order.orderLoads && order.orderLoads.length > 0 && (
+            {order.paymentStatus === "ready_for_payment" && order.orderLoads && order.orderLoads.length > 0 && (
               <div>
                 <dt className="text-fern-500">Transaction number</dt>
                 <dd className="text-fern-900 mt-0.5 font-mono">{order.orderNumber}</dd>

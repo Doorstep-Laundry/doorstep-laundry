@@ -8,7 +8,6 @@ const STATUS_ORDER = [
   "picked_up",
   "ready_for_wash",
   "in_progress",
-  "waiting_for_payment",
   "ready_for_delivery",
   "out_for_delivery",
   "delivered",

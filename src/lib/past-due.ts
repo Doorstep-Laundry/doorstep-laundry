@@ -10,7 +10,6 @@ export type PastDueOrder = {
 };
 
 const PAST_DUE_STATUSES: OrderStatus[] = [
-  OrderStatus.waiting_for_payment,
   OrderStatus.ready_for_delivery,
   OrderStatus.out_for_delivery,
   OrderStatus.delivered,

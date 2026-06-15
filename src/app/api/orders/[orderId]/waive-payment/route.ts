@@ -28,33 +28,10 @@ export async function POST(
     return NextResponse.json({ error: "Order has already been paid" }, { status: 400 });
   }
 
-  const adminId = (session.user as { id: string }).id;
-
-  // Mirror what the Stripe webhook does: advance waiting_for_payment → ready_for_delivery,
-  // or just set the flag if delivery is already in progress.
-  if (order.status === "waiting_for_payment") {
-    await prisma.order.update({
-      where: { id: orderId },
-      data: { paymentWaived: true, status: "ready_for_delivery" },
-    });
-    await prisma.orderLoad.updateMany({
-      where: { orderId },
-      data: { status: "ready_for_delivery" },
-    });
-    await prisma.orderStatusHistory.create({
-      data: {
-        orderId,
-        status: "ready_for_delivery",
-        note: "Payment waived by admin",
-        changedById: adminId,
-      },
-    });
-  } else {
-    await prisma.order.update({
-      where: { id: orderId },
-      data: { paymentWaived: true },
-    });
-  }
+  await prisma.order.update({
+    where: { id: orderId },
+    data: { paymentWaived: true, paymentStatus: "waived" },
+  });
 
   return NextResponse.json({ ok: true });
 }

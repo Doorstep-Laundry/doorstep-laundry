@@ -6,12 +6,12 @@ import type { LoadStatus } from "@prisma/client";
 import { getOrderStatusFromLoads } from "@/lib/order-transitions";
 
 const VALID_LOAD_STATUSES: LoadStatus[] = [
-  "ready_for_pickup",
-  "incoming",
+  "scheduled",
+  "picked_up",
   "ready_for_wash",
   "washing",
   "drying",
-  "folding",
+  "folded",
   "cleaned",
   "ready_for_delivery",
   "out_for_delivery",
@@ -54,7 +54,7 @@ export async function PATCH(
     orderStatus === "delivered";
   if (orderPaid) {
     return NextResponse.json(
-      { error: "Cannot change load after payment; update from the driver page." },
+      { error: "Cannot change load once order is ready for delivery or later." },
       { status: 403 }
     );
   }
@@ -98,9 +98,13 @@ export async function PATCH(
   const newOrderStatus = getOrderStatusFromLoads(currentOrderStatus, allLoads);
 
   if (newOrderStatus) {
+    const orderData: Parameters<typeof prisma.order.update>[0]["data"] = { status: newOrderStatus };
+    if (newOrderStatus === "ready_for_delivery") {
+      orderData.paymentStatus = "ready_for_payment";
+    }
     await prisma.order.update({
       where: { id: orderId },
-      data: { status: newOrderStatus },
+      data: orderData,
     });
     const note = getNoteForOrderStatusChange(newOrderStatus);
     await prisma.orderStatusHistory.create({

@@ -1,17 +1,10 @@
-/**
- * Order-level display status derived from load statuses:
- * - "ready_for_delivery" when all loads are ready_for_delivery
- * - "in_progress" when any load is incoming, washing, drying, or folding
- * - otherwise the order's database status is used
- */
-
 export type LoadStatus =
-  | "ready_for_pickup"
-  | "incoming"
+  | "scheduled"
+  | "picked_up"
   | "ready_for_wash"
   | "washing"
   | "drying"
-  | "folding"
+  | "folded"
   | "cleaned"
   | "ready_for_delivery"
   | "out_for_delivery"
@@ -26,11 +19,11 @@ export function getDerivedOrderStatus(
   if (allReady) return "ready_for_delivery";
   const anyStarted = loadStatuses.some(
     (s) =>
-      s === "incoming" ||
       s === "ready_for_wash" ||
       s === "washing" ||
       s === "drying" ||
-      s === "folding"
+      s === "folded" ||
+      s === "cleaned"
   );
   if (anyStarted) return "in_progress";
   return orderStatus;
@@ -41,7 +34,6 @@ export const DERIVED_STATUS_LABEL: Record<string, string> = {
   picked_up: "Picked up",
   ready_for_wash: "Ready for wash",
   in_progress: "In progress",
-  waiting_for_payment: "Waiting for payment",
   ready_for_delivery: "Ready for delivery",
   out_for_delivery: "Out for delivery",
   delivered: "Delivered",

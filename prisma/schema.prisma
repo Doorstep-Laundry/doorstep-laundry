@@ -29,7 +29,6 @@ enum OrderStatus {
   picked_up
   ready_for_wash
   in_progress
-  waiting_for_payment
   ready_for_delivery
   out_for_delivery
   delivered
@@ -37,16 +36,24 @@ enum OrderStatus {
 }
 
 enum LoadStatus {
-  ready_for_pickup
-  incoming
+  scheduled
+  picked_up
   ready_for_wash
   washing
   drying
-  folding
+  folded
   cleaned
   ready_for_delivery
   out_for_delivery
   delivered
+}
+
+enum PaymentStatus {
+  pending
+  ready_for_payment
+  paid
+  waived
+  credited
 }
 
 model User {
@@ -136,8 +143,9 @@ model Order {
   orderPricePerPoundCents         Int?        @map("order_price_per_pound_cents")
   premiumSurchargePerPoundCents   Int         @default(0) @map("premium_surcharge_per_pound_cents")
   nmgrtExempt                     Boolean?    @map("nmgrt_exempt")
-  stripePaymentId         String?     @map("stripe_payment_id")
-  paymentWaived           Boolean     @default(false) @map("payment_waived")
+  stripePaymentId         String?       @map("stripe_payment_id")
+  paymentWaived           Boolean       @default(false) @map("payment_waived")
+  paymentStatus           PaymentStatus @default(pending) @map("payment_status")
   createdAt          DateTime    @default(now()) @map("created_at")
   updatedAt          DateTime    @updatedAt @map("updated_at")
 
@@ -157,7 +165,7 @@ model OrderLoad {
   orderId        String     @map("order_id")
   loadNumber     Int        @map("load_number")
   loadCode       String?    @unique @map("load_code")
-  status         LoadStatus @default(ready_for_pickup)
+  status         LoadStatus @default(scheduled)
   location       String?    @map("location")
   weightLbs      Float?     @map("weight_lbs")
   hotWater       Boolean    @default(false) @map("hot_water")

@@ -38,7 +38,6 @@ describe("getPastDueOrders", () => {
     expect(where.stripePaymentId).toBeNull();
     expect(where.status.in).toEqual(
       expect.arrayContaining([
-        OrderStatus.waiting_for_payment,
         OrderStatus.ready_for_delivery,
         OrderStatus.out_for_delivery,
         OrderStatus.delivered,

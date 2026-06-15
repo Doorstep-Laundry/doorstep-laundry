@@ -95,7 +95,7 @@ export function AdminTabs() {
               Price per pound
             </h2>
             <p className="text-sm text-fern-600 mb-4">
-              Base price per pound (before tax) when orders enter &quot;Waiting for payment&quot; (after loads are cleaned and weighed). NMGRT is added on top of this rate. Default $1.50/lb.
+              Base price per pound (before tax) applied when loads are cleaned and weighed. NMGRT is added on top of this rate. Default $1.50/lb.
             </p>
             <AdminPricePerPound />
             <div className="mt-8 border-t border-fern-100 pt-6">

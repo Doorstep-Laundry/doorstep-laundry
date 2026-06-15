@@ -6,12 +6,11 @@ import {
 } from "./order-loads-policy";
 
 describe("canAddOrderLoad", () => {
-  it("allows pre-payment operational statuses", () => {
+  it("allows pre-delivery operational statuses", () => {
     expect(canAddOrderLoad("scheduled")).toBe(true);
     expect(canAddOrderLoad("picked_up")).toBe(true);
     expect(canAddOrderLoad("ready_for_wash")).toBe(true);
     expect(canAddOrderLoad("in_progress")).toBe(true);
-    expect(canAddOrderLoad("waiting_for_payment")).toBe(true);
   });
 
   it("blocks cancelled and post-payment / delivery statuses", () => {
@@ -23,18 +22,18 @@ describe("canAddOrderLoad", () => {
 });
 
 describe("canDeleteLastOrderLoad (driver remove; washer has no UI)", () => {
-  it("allows scheduled with more than one load and ready_for_pickup last", () => {
+  it("allows scheduled with more than one load and scheduled last", () => {
     expect(
-      canDeleteLastOrderLoad("scheduled", 2, "ready_for_pickup")
+      canDeleteLastOrderLoad("scheduled", 2, "scheduled")
     ).toEqual({ ok: true });
   });
 
-  it("allows picked_up with incoming last load", () => {
-    expect(canDeleteLastOrderLoad("picked_up", 2, "incoming")).toEqual({ ok: true });
+  it("allows picked_up with picked_up last load", () => {
+    expect(canDeleteLastOrderLoad("picked_up", 2, "picked_up")).toEqual({ ok: true });
   });
 
   it("rejects when fewer than 2 loads", () => {
-    const r = canDeleteLastOrderLoad("scheduled", 1, "ready_for_pickup");
+    const r = canDeleteLastOrderLoad("scheduled", 1, "scheduled");
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.reason).toMatch(/at least one load/);
   });
@@ -54,10 +53,9 @@ describe("canDeleteLastOrderLoad (driver remove; washer has no UI)", () => {
 
 describe("initialLoadStatusForOrder", () => {
   it("maps order status to new load status", () => {
-    expect(initialLoadStatusForOrder("scheduled")).toBe("ready_for_pickup");
-    expect(initialLoadStatusForOrder("picked_up")).toBe("incoming");
+    expect(initialLoadStatusForOrder("scheduled")).toBe("scheduled");
+    expect(initialLoadStatusForOrder("picked_up")).toBe("picked_up");
     expect(initialLoadStatusForOrder("ready_for_wash")).toBe("ready_for_wash");
     expect(initialLoadStatusForOrder("in_progress")).toBe("ready_for_wash");
-    expect(initialLoadStatusForOrder("waiting_for_payment")).toBe("ready_for_wash");
   });
 });

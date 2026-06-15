@@ -1,30 +1,18 @@
-/**
- * Single source of truth for order status transitions (manual API) and
- * load-driven order sync rules. Used by API routes and unit tests.
- *
- * Note: payment is decoupled from delivery. Loads transition from "cleaned"
- * (folded, awaiting weigh-in) directly to "ready_for_delivery" when weighed.
- * The order follows once all loads reach "ready_for_delivery".
- */
-
 export type OrderStatus =
   | "scheduled"
   | "picked_up"
   | "ready_for_wash"
   | "in_progress"
-  | "waiting_for_payment"
   | "ready_for_delivery"
   | "out_for_delivery"
   | "delivered"
   | "cancelled";
 
-/** Allowed manual transitions from each order status. */
 export const VALID_ORDER_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   scheduled: ["picked_up", "cancelled"],
   picked_up: ["ready_for_wash", "in_progress", "cancelled"],
   ready_for_wash: ["in_progress", "cancelled"],
-  in_progress: ["waiting_for_payment", "ready_for_delivery", "out_for_delivery", "cancelled"],
-  waiting_for_payment: ["ready_for_delivery", "cancelled"],
+  in_progress: ["ready_for_delivery", "cancelled"],
   ready_for_delivery: ["out_for_delivery", "cancelled"],
   out_for_delivery: ["delivered"],
   delivered: [],
@@ -32,12 +20,12 @@ export const VALID_ORDER_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
 };
 
 export type LoadStatus =
-  | "ready_for_pickup"
-  | "incoming"
+  | "scheduled"
+  | "picked_up"
   | "ready_for_wash"
   | "washing"
   | "drying"
-  | "folding"
+  | "folded"
   | "cleaned"
   | "ready_for_delivery"
   | "out_for_delivery"
@@ -45,39 +33,36 @@ export type LoadStatus =
 
 export type LoadRow = { status: string; location?: string | null; weightLbs?: number | null };
 
+const WASH_IN_PROGRESS_STATUSES = ["washing", "drying", "folded", "cleaned", "ready_for_delivery"];
+
 /**
  * Compute order status from load statuses (for sync when a load is updated).
  * Returns null if order status should not change.
- * - picked_up → ready_for_wash when all loads have a location (shelf).
- * - ready_for_wash → in_progress when any load is washing.
- * - in_progress: any load in incoming, ready_for_wash, washing, drying, folding.
- * - in_progress → waiting_for_payment when all loads are "cleaned" and have weightLbs (balance set, delivery can proceed independently).
- * - ready_for_delivery: manual transition from waiting_for_payment, or auto via Stripe webhook when payment received first.
+ * - ready_for_wash + any load started washing → in_progress
+ * - in_progress + all loads ready_for_delivery → ready_for_delivery
  */
 export function getOrderStatusFromLoads(
   currentOrderStatus: OrderStatus,
   loads: LoadRow[]
 ): OrderStatus | null {
   if (loads.length === 0) return null;
-  const canSet =
-    currentOrderStatus !== "out_for_delivery" &&
-    currentOrderStatus !== "delivered" &&
-    currentOrderStatus !== "cancelled";
-
-  const allHaveLocation = loads.every((l) => (l.location ?? "").trim() !== "");
-  const anyWashing =
-    loads.some((l) =>
-      ["incoming", "ready_for_wash", "washing", "drying", "folding"].includes(l.status)
-    );
-  const allReadyForDelivery = loads.every((l) => l.status === "ready_for_delivery");
-
-  if (currentOrderStatus === "waiting_for_payment") return null;
-  if (allReadyForDelivery && canSet) return "ready_for_delivery";
-  if (currentOrderStatus === "ready_for_wash" && anyWashing && canSet) return "in_progress";
-  if (currentOrderStatus === "picked_up") {
-    if (allHaveLocation && canSet) return "ready_for_wash";
+  if (
+    currentOrderStatus === "out_for_delivery" ||
+    currentOrderStatus === "delivered" ||
+    currentOrderStatus === "cancelled"
+  ) {
     return null;
   }
-  if (anyWashing && canSet) return "in_progress";
+
+  if (currentOrderStatus === "in_progress") {
+    const allReadyForDelivery = loads.every((l) => l.status === "ready_for_delivery");
+    if (allReadyForDelivery) return "ready_for_delivery";
+  }
+
+  if (currentOrderStatus === "ready_for_wash") {
+    const anyWashing = loads.some((l) => WASH_IN_PROGRESS_STATUSES.includes(l.status));
+    if (anyWashing) return "in_progress";
+  }
+
   return null;
 }

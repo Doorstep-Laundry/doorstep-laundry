@@ -23,16 +23,10 @@ describe("order status transitions", () => {
     expect(VALID_ORDER_TRANSITIONS.ready_for_wash).toContain("cancelled");
   });
 
-  it("in_progress can go to ready_for_delivery, out_for_delivery, or cancelled", () => {
+  it("in_progress can go to ready_for_delivery or cancelled", () => {
     expect(VALID_ORDER_TRANSITIONS.in_progress).toContain("ready_for_delivery");
-    expect(VALID_ORDER_TRANSITIONS.in_progress).toContain("out_for_delivery");
+    expect(VALID_ORDER_TRANSITIONS.in_progress).not.toContain("out_for_delivery");
     expect(VALID_ORDER_TRANSITIONS.in_progress).toContain("cancelled");
-  });
-
-  it("waiting_for_payment can go to ready_for_delivery or cancelled (delivery independent of payment)", () => {
-    expect(VALID_ORDER_TRANSITIONS.waiting_for_payment).toContain("ready_for_delivery");
-    expect(VALID_ORDER_TRANSITIONS.waiting_for_payment).toContain("cancelled");
-    expect(VALID_ORDER_TRANSITIONS.waiting_for_payment).not.toContain("delivered");
   });
 
   it("ready_for_delivery can go to out_for_delivery or cancelled", () => {
@@ -56,18 +50,10 @@ describe("order status transitions", () => {
 });
 
 describe("getOrderStatusFromLoads", () => {
-  it("picked_up + all loads have location → ready_for_wash", () => {
+  it("picked_up → ready_for_wash is manual, not load-driven; getOrderStatusFromLoads returns null", () => {
     const loads: LoadRow[] = [
-      { status: "ready_for_pickup", location: "A1", weightLbs: null },
-      { status: "incoming", location: "A2", weightLbs: null },
-    ];
-    expect(getOrderStatusFromLoads("picked_up", loads)).toBe("ready_for_wash");
-  });
-
-  it("picked_up + some load missing location → null", () => {
-    const loads: LoadRow[] = [
-      { status: "ready_for_pickup", location: "A1", weightLbs: null },
-      { status: "incoming", location: "", weightLbs: null },
+      { status: "scheduled", location: "A1", weightLbs: null },
+      { status: "picked_up", location: "A2", weightLbs: null },
     ];
     expect(getOrderStatusFromLoads("picked_up", loads)).toBeNull();
   });
@@ -80,12 +66,12 @@ describe("getOrderStatusFromLoads", () => {
     expect(getOrderStatusFromLoads("ready_for_wash", loads)).toBe("in_progress");
   });
 
-  it("in_progress + all loads in washing/drying/folding → in_progress", () => {
+  it("in_progress + loads still in wash stages → null (order stays in_progress, no change)", () => {
     const loads: LoadRow[] = [
       { status: "drying", location: "A1" },
-      { status: "folding", location: "A2" },
+      { status: "folded", location: "A2" },
     ];
-    expect(getOrderStatusFromLoads("in_progress", loads)).toBe("in_progress");
+    expect(getOrderStatusFromLoads("in_progress", loads)).toBeNull();
   });
 
   it("in_progress + all loads cleaned with location and weight → null (loads must reach ready_for_delivery individually)", () => {
@@ -128,11 +114,11 @@ describe("getOrderStatusFromLoads", () => {
     expect(getOrderStatusFromLoads("in_progress", loads)).toBe("ready_for_delivery");
   });
 
-  it("ready_for_wash + all loads cleaned with weight → null (order waits for loads to reach ready_for_delivery)", () => {
+  it("ready_for_wash + any load in wash stage → in_progress", () => {
     const loads: LoadRow[] = [
       { status: "cleaned", location: null, weightLbs: 12 },
     ];
-    expect(getOrderStatusFromLoads("ready_for_wash", loads)).toBeNull();
+    expect(getOrderStatusFromLoads("ready_for_wash", loads)).toBe("in_progress");
   });
 
   it("empty loads → null", () => {

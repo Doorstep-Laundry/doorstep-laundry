@@ -42,7 +42,7 @@ export async function POST(request: Request) {
   if (order.stripePaymentId) {
     return NextResponse.json({ error: "Order already paid" }, { status: 400 });
   }
-  const payableStatuses = ["waiting_for_payment", "ready_for_delivery", "out_for_delivery", "delivered"];
+  const payableStatuses = ["ready_for_delivery", "out_for_delivery", "delivered"];
   if (!payableStatuses.includes(order.status)) {
     return NextResponse.json(
       { error: "Order is not ready for payment yet" },
@@ -81,29 +81,9 @@ export async function POST(request: Request) {
 
     if (creditedCount >= order.orderLoads.length) {
       // All loads are credited — skip Stripe entirely
-      await prisma.$transaction(async (tx) => {
-        await tx.order.update({
-          where: { id: orderId },
-          data: {
-            stripePaymentId: "CREDIT",
-            totalCents: 0,
-            ...(order.status === "waiting_for_payment" ? { status: "ready_for_delivery" } : {}),
-          },
-        });
-        await tx.orderStatusHistory.create({
-          data: {
-            orderId,
-            status: "ready_for_delivery",
-            note: "All loads covered by load credits; no payment required",
-            changedById: userId,
-          },
-        });
-        if (order.status === "waiting_for_payment") {
-          await tx.orderLoad.updateMany({
-            where: { orderId },
-            data: { status: "ready_for_delivery" },
-          });
-        }
+      await prisma.order.update({
+        where: { id: orderId },
+        data: { stripePaymentId: "CREDIT", totalCents: 0, paymentStatus: "credited" },
       });
       return NextResponse.json({ url: `${baseUrl}/orders/${orderId}?paid=1` });
     }

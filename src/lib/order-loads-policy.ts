@@ -7,7 +7,7 @@ export const BLOCKED_ADD_STATUSES: OrderStatus[] = [
   "delivered",
 ];
 
-export const REMOVABLE_LAST_LOAD_STATUSES: LoadStatus[] = ["ready_for_pickup", "incoming"];
+export const REMOVABLE_LAST_LOAD_STATUSES: LoadStatus[] = ["scheduled", "picked_up"];
 
 export function canAddOrderLoad(orderStatus: OrderStatus): boolean {
   return !BLOCKED_ADD_STATUSES.includes(orderStatus);
@@ -17,9 +17,6 @@ export type DeleteLastLoadResult =
   | { ok: true }
   | { ok: false; reason: string };
 
-/**
- * Driver-style removal: only while scheduled/picked up, min 1 load, last load not past incoming.
- */
 export function canDeleteLastOrderLoad(
   orderStatus: OrderStatus,
   numberOfLoads: number,
@@ -37,8 +34,7 @@ export function canDeleteLastOrderLoad(
   if (!REMOVABLE_LAST_LOAD_STATUSES.includes(lastLoadStatus)) {
     return {
       ok: false,
-      reason:
-        "Only loads that have not started processing (ready for pickup or incoming) can be removed",
+      reason: "Only loads that have not started processing (scheduled or picked up) can be removed",
     };
   }
   return { ok: true };
@@ -47,12 +43,11 @@ export function canDeleteLastOrderLoad(
 export function initialLoadStatusForOrder(orderStatus: OrderStatus): LoadStatus {
   switch (orderStatus) {
     case "scheduled":
-      return "ready_for_pickup";
+      return "scheduled";
     case "picked_up":
-      return "incoming";
+      return "picked_up";
     case "ready_for_wash":
     case "in_progress":
-    case "waiting_for_payment":
       return "ready_for_wash";
     default:
       return "ready_for_wash";

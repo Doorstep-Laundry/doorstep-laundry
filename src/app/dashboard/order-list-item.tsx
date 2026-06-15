@@ -13,7 +13,6 @@ const statusLabel: Record<string, string> = {
   picked_up: "Picked up",
   ready_for_wash: "Ready for wash",
   in_progress: "In progress",
-  waiting_for_payment: "Waiting for payment",
   ready_for_delivery: "Ready for delivery",
   out_for_delivery: "Out for delivery",
   delivered: "Delivered",
@@ -24,6 +23,7 @@ export type OrderListItemOrder = {
   id: string;
   orderNumber: string;
   status: string;
+  paymentStatus?: string | null;
   stripePaymentId?: string | null;
   totalCents?: number | null;
   pickupDate: Date | string;
@@ -43,9 +43,9 @@ export function OrderListItem({
   const router = useRouter();
   const [applyingCredit, setApplyingCredit] = useState(false);
   const isScheduled = order.status === "scheduled";
-  const showPay = order.status === "waiting_for_payment" && !order.stripePaymentId;
+  const showPay = order.paymentStatus === "ready_for_payment" && !order.stripePaymentId;
   const showReceipt = Boolean(order.stripePaymentId);
-  const creditEligible = ["picked_up", "waiting_for_payment"].includes(order.status);
+  const creditEligible = ["picked_up", "in_progress", "ready_for_delivery"].includes(order.status);
   const hasUncreditedLoads = order.orderLoads?.some((l) => !l.creditedLoad) ?? true;
   const showUseCredit = creditedLoads > 0 && creditEligible && hasUncreditedLoads;
 
@@ -82,7 +82,7 @@ export function OrderListItem({
               {new Date(order.deliveryDate).toLocaleDateString()}
               {order.deliveryTimeSlot && ` ${getTimeSlotById(order.deliveryTimeSlot)?.label ?? order.deliveryTimeSlot}`}
             </p>
-            {order.status === "waiting_for_payment" && (order.totalCents != null || (order.orderLoads?.length ?? 0) > 0) && (
+            {order.paymentStatus === "ready_for_payment" && (order.totalCents != null || (order.orderLoads?.length ?? 0) > 0) && (
               <p className="text-sm text-fern-700 mt-1">
                 {order.totalCents != null && order.totalCents > 0 && (
                   <>Total: ${(Math.round(order.totalCents) / 100).toFixed(2)}</>

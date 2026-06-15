@@ -6,7 +6,7 @@ import { sendOrderNotification } from "@/lib/notify";
 
 /**
  * POST: Start a pickup run. Transition selected scheduled orders to picked_up
- * and set all their loads to status "incoming".
+ * and set all their loads to status "picked_up".
  * Body: { orderIds: string[] }
  */
 export async function POST(request: Request) {
@@ -63,7 +63,7 @@ export async function POST(request: Request) {
             orderId,
             loadNumber: n,
             loadCode: `${order.orderNumber}-L${n}`,
-            status: "incoming",
+            status: "picked_up",
           },
         });
       }
@@ -83,7 +83,7 @@ export async function POST(request: Request) {
     });
     await prisma.orderLoad.updateMany({
       where: { orderId },
-      data: { status: "incoming" },
+      data: { status: "picked_up" },
     });
     await sendOrderNotification(orderId, "picked_up").catch((e) =>
       console.error("Notify picked_up:", e)

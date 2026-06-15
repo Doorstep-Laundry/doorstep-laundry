@@ -102,7 +102,7 @@ export async function PATCH(
       premiumSurchargePerPoundCents?: number;
     };
     const loads = numberOfLoads != null && numberOfLoads >= 1 ? numberOfLoads : order.numberOfLoads;
-    // totalCents set at weigh-in (waiting_for_payment); leave existing until then
+    // totalCents is set at weigh-in; preserve existing value until then
     const totalCents = order.totalCents;
     const computedSurchargeCents =
       premiumSurchargeCents != null && Number.isFinite(premiumSurchargeCents) && premiumSurchargeCents >= 0
@@ -190,7 +190,7 @@ export async function PATCH(
             orderId: orderId,
             loadNumber: n,
             loadCode: `${order.orderNumber}-L${n}`,
-            status: "ready_for_pickup",
+            status: "scheduled",
             ...opts,
             bulkyItems: bulkyJson ?? undefined,
           },

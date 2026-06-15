@@ -41,7 +41,7 @@ export default async function WashPage() {
               orderId: order.id,
               loadNumber: n,
               loadCode: `${order.orderNumber}-L${n}`,
-              status: "ready_for_pickup",
+              status: "scheduled",
             },
           });
         }

@@ -51,10 +51,12 @@ export async function POST(
     );
   }
 
-  await prisma.order.update({
-    where: { id: orderId },
-    data: { status: newStatus },
-  });
+  const orderUpdate: Parameters<typeof prisma.order.update>[0]["data"] = { status: newStatus };
+  if (newStatus === "ready_for_delivery") {
+    orderUpdate.paymentStatus = "ready_for_payment";
+  }
+
+  await prisma.order.update({ where: { id: orderId }, data: orderUpdate });
   await prisma.orderStatusHistory.create({
     data: {
       orderId,
@@ -64,29 +66,30 @@ export async function POST(
     },
   });
 
+  // Cascade load statuses for mirrored states
   if (newStatus === "picked_up") {
     const orderWithNumber = await prisma.order.findUnique({
       where: { id: orderId },
       select: { orderNumber: true },
     });
-    const existingLoads = await prisma.orderLoad.count({
-      where: { orderId },
-    });
-    if (
-      orderWithNumber &&
-      existingLoads < order.numberOfLoads
-    ) {
+    const existingLoads = await prisma.orderLoad.count({ where: { orderId } });
+    if (orderWithNumber && existingLoads < order.numberOfLoads) {
       for (let n = existingLoads + 1; n <= order.numberOfLoads; n++) {
         await prisma.orderLoad.create({
           data: {
             orderId,
             loadNumber: n,
             loadCode: `${orderWithNumber.orderNumber}-L${n}`,
-            status: "ready_for_pickup",
+            status: "picked_up",
           },
         });
       }
     }
+    await prisma.orderLoad.updateMany({ where: { orderId }, data: { status: "picked_up" } });
+  }
+
+  if (newStatus === "ready_for_wash") {
+    await prisma.orderLoad.updateMany({ where: { orderId }, data: { status: "ready_for_wash" } });
   }
 
   const eventMap: Partial<Record<OrderStatus, import("@/lib/notify").NotifyEvent>> = {
@@ -102,37 +105,6 @@ export async function POST(
     await sendOrderNotification(orderId, event).catch((e) =>
       console.error("Notify status:", e)
     );
-  }
-
-  if (newStatus === "delivered") {
-    const driverId = (session.user as { id: string }).id;
-    const runs = await prisma.driverRun.findMany({
-      where: { driverId },
-      orderBy: { startedAt: "desc" },
-      take: 5,
-    });
-    const MINUTES_PER_STOP = 10;
-    for (const run of runs) {
-      const orderIds = run.orderIds as string[];
-      const idx = orderIds.indexOf(orderId);
-      if (idx === -1) continue;
-      const deliveredOrders = await prisma.order.findMany({
-        where: { id: { in: orderIds }, status: "delivered" },
-        select: { id: true },
-      });
-      const deliveredSet = new Set(deliveredOrders.map((o) => o.id));
-      for (let i = idx + 1; i < orderIds.length; i++) {
-        const oid = orderIds[i];
-        if (deliveredSet.has(oid)) continue;
-        const stopsAway = orderIds.slice(idx + 1, i).filter((id) => !deliveredSet.has(id)).length;
-        const etaMinutes = (stopsAway + 1) * MINUTES_PER_STOP;
-        await sendOrderNotification(oid, "delivery_update", {
-          stopsAway,
-          etaMinutes,
-        }).catch((e) => console.error("Notify delivery_update:", e));
-      }
-      break;
-    }
   }
 
   return NextResponse.json({ ok: true, status: newStatus });

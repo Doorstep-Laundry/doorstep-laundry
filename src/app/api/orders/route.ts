@@ -95,7 +95,7 @@ export async function GET(request: Request) {
               orderId,
               loadNumber: n,
               loadCode: `${order.orderNumber}-L${n}`,
-              status: "ready_for_pickup",
+              status: "scheduled",
             },
           });
         }
@@ -279,7 +279,7 @@ export async function POST(request: Request) {
           orderId: order.id,
           loadNumber: n,
           loadCode: `${order.orderNumber}-L${n}`,
-          status: "ready_for_pickup",
+          status: "scheduled",
           ...opts,
           bulkyItems:
             Object.keys(bulkyNorm).length > 0

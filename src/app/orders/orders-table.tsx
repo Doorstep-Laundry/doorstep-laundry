@@ -16,7 +16,6 @@ const STATUS_ORDER: string[] = [
   "picked_up",
   "ready_for_wash",
   "in_progress",
-  "waiting_for_payment",
   "ready_for_delivery",
   "out_for_delivery",
   "delivered",
@@ -33,7 +32,6 @@ const STATUS_LABEL: Record<string, string> = {
   picked_up: "Picked up",
   ready_for_wash: "Ready for wash",
   in_progress: "In progress",
-  waiting_for_payment: "Waiting for payment",
   ready_for_delivery: "Ready for delivery",
   out_for_delivery: "Out for delivery",
   delivered: "Delivered",
@@ -54,6 +52,7 @@ type OrderRow = {
   status: string;
   stripePaymentId?: string | null;
   paymentWaived?: boolean;
+  paymentStatus?: string | null;
   numberOfLoads: number;
   pickupDate: Date | string;
   deliveryDate: Date | string;
@@ -475,7 +474,7 @@ export function OrdersTable({
                                 <p className="text-fern-900 mt-0.5">{detail.notes}</p>
                               </div>
                             )}
-                            {order.status === "waiting_for_payment" && !order.stripePaymentId && !order.paymentWaived && (
+                            {order.paymentStatus === "ready_for_payment" && !order.stripePaymentId && !order.paymentWaived && (
                               <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-fern-200" onClick={(e) => e.stopPropagation()}>
                                 <ResendPaymentButton orderId={order.id} />
                                 {role === "admin" && (

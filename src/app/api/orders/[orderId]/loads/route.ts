@@ -59,7 +59,6 @@ export async function POST(
   const loads = order.orderLoads ?? [];
   const existingNumbers = new Set(loads.map((l) => l.loadNumber));
   const status = initialLoadStatusForOrder(order.status);
-  const wasWaitingForPayment = order.status === "waiting_for_payment";
 
   await prisma.$transaction(async (tx) => {
     // Fill gaps up to current numberOfLoads so load numbers stay contiguous before adding.
@@ -96,20 +95,6 @@ export async function POST(
       where: { id: orderId },
       data: { numberOfLoads: { increment: 1 } },
     });
-    if (wasWaitingForPayment) {
-      await tx.order.update({
-        where: { id: orderId },
-        data: { status: "in_progress" },
-      });
-      await tx.orderStatusHistory.create({
-        data: {
-          orderId,
-          status: "in_progress",
-          note: "Load added; order returned to in progress for processing",
-          changedById: userId,
-        },
-      });
-    }
   });
 
   const finalOrder = await prisma.order.findUnique({

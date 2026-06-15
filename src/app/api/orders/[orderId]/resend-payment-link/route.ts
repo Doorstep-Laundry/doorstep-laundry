@@ -6,7 +6,7 @@ import { getStripe } from "@/lib/stripe";
 import { sendOrderNotification } from "@/lib/notify";
 
 /**
- * POST: Resend payment email and Stripe link for an order in waiting_for_payment.
+ * POST: Resend payment email and Stripe link for an order ready for payment.
  * Customer (own order) or staff/admin.
  */
 export async function POST(
@@ -36,7 +36,7 @@ export async function POST(
   if (order.customerId !== userId && !isStaff(role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  const payableStatuses = ["waiting_for_payment", "ready_for_delivery", "out_for_delivery", "delivered"];
+  const payableStatuses = ["ready_for_delivery", "out_for_delivery", "delivered"];
   if (!payableStatuses.includes(order.status)) {
     return NextResponse.json(
       { error: "Order is not ready for payment" },
