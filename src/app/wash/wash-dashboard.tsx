@@ -31,6 +31,10 @@ const LOAD_STATUS_LABEL: Record<string, string> = {
   delivered: "Delivered",
 };
 
+const WASH_SELECTABLE_STATUSES = Object.entries(LOAD_STATUS_LABEL).filter(
+  ([v]) => !["scheduled", "picked_up", "out_for_delivery", "delivered"].includes(v)
+);
+
 type OrderLoadRow = {
   id: string;
   loadNumber: number;
@@ -353,7 +357,7 @@ export function WashDashboard({
                             disabled={updatingLoadId === load.id}
                             className={inputClass}
                           >
-                            {Object.entries(LOAD_STATUS_LABEL).map(([v, l]) => (
+                            {WASH_SELECTABLE_STATUSES.map(([v, l]) => (
                               <option key={v} value={v}>
                                 {l}
                               </option>
