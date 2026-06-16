@@ -57,6 +57,8 @@ export function getOrderStatusFromLoads(
   if (currentOrderStatus === "in_progress") {
     const allReadyForDelivery = loads.every((l) => l.status === "ready_for_delivery");
     if (allReadyForDelivery) return "ready_for_delivery";
+    const allReadyForWash = loads.every((l) => l.status === "ready_for_wash");
+    if (allReadyForWash) return "ready_for_wash";
   }
 
   if (currentOrderStatus === "ready_for_wash") {

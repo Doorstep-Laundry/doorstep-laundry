@@ -40,7 +40,7 @@ Payment can be collected at any point from `ready_for_delivery` through `deliver
 Load statuses mirror the parent order for the early and late stages of the lifecycle. In the middle — while washing is happening — loads move independently.
 
 ```
-scheduled → picked_up → ready_for_wash → washing → drying → folded → cleaned → ready_for_delivery
+scheduled → picked_up → ready_for_wash → washing → drying → folding → cleaned → ready_for_delivery
                                                                                         ↑
                                                                  (each load gets here independently)
 
@@ -58,7 +58,7 @@ Order ready_for_delivery → out_for_delivery → delivered
 | `ready_for_wash` | ✅ yes | Order at facility; all loads moved to facility and ready to wash |
 | `washing` | — | In washer |
 | `drying` | — | In dryer |
-| `folding` | — | Folded |
+| `folding` | — | Being folded |
 | `cleaned` | — | Needs weight — folded but not yet weighed |
 | `ready_for_delivery` | — | Weighed; this load is done |
 | `out_for_delivery` | ✅ yes | Order dispatched; all loads mirror order |
@@ -112,6 +112,7 @@ These fire automatically whenever a load is updated via `PATCH /api/order-loads/
 | Current order status | Load condition | Order auto-transitions to |
 |---|---|---|
 | `ready_for_wash` | Any load advances to `washing` or beyond | `in_progress` |
+| `in_progress` | All loads are `ready_for_wash` | `ready_for_wash` |
 | `in_progress` | All loads are `ready_for_delivery` | `ready_for_delivery` |
 | `out_for_delivery`, `delivered`, `cancelled` | _(never auto-syncs)_ | — |
 
@@ -134,7 +135,7 @@ These fire automatically whenever a load is updated via `PATCH /api/order-loads/
 Once a load is `ready_for_wash`, staff can advance it through the wash stages:
 
 ```
-ready_for_wash → washing → drying → folded → cleaned → ready_for_delivery
+ready_for_wash → washing → drying → folding → cleaned → ready_for_delivery
 ```
 
 Guards:
