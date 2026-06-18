@@ -1,5 +1,5 @@
 import { getCompanyInfo, getMaxServiceDistanceMiles } from "@/lib/settings";
-import { smartyVerifyAddress } from "@/lib/smarty";
+import { geocodeAddress } from "@/lib/geocode";
 
 type LatLng = { lat: number; lng: number };
 
@@ -25,8 +25,8 @@ async function geocodeToLatLng(parts: {
   state: string;
   zip: string;
 }): Promise<LatLng | null> {
-  const result = await smartyVerifyAddress(parts);
-  if (!result.valid || result.lat == null || result.lng == null) return null;
+  const result = await geocodeAddress(parts);
+  if (!result.valid) return null;
   return { lat: result.lat, lng: result.lng };
 }
 
@@ -39,7 +39,6 @@ async function getFacilityLatLng(facilityAddress: string): Promise<LatLng | null
   ) {
     return facilityLatLngCache.value;
   }
-  // Parse the raw facility address string into parts for Smarty
   const parts = parseFacilityAddress(facilityAddress);
   const value = parts ? await geocodeToLatLng(parts) : null;
   facilityLatLngCache = { at: now, value, address: facilityAddress };
@@ -68,7 +67,7 @@ function parseFacilityAddress(
     const city = cityState.slice(0, -1).join(" ");
     return { street: parts[0], city, state, zip };
   }
-  // Fallback: treat whole thing as street, let Smarty figure it out
+  // Fallback: treat whole thing as street
   return { street: trimmed, city: "", state: "", zip };
 }
 
@@ -95,7 +94,7 @@ export async function checkAddressWithinServiceArea(parts: {
     return { ok: true };
   }
 
-  if (!process.env.SMARTY_AUTH_ID || !process.env.SMARTY_AUTH_TOKEN) {
+  if (!process.env.GOOGLE_MAPS_API_KEY) {
     return {
       ok: false,
       error:

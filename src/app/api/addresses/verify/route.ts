@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { smartyVerifyAddress } from "@/lib/smarty";
+import { geocodeAddress } from "@/lib/geocode";
 
 /**
- * POST: Verify a US address using Smarty Street Address API.
+ * POST: Verify a US address using Google Maps Geocoding API.
  * Body: { street, city, state, zip }
  * Returns: { valid: boolean, suggested?: { street, city, state, zip }, message?: string }
  */
@@ -30,12 +30,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ valid: false, message: "Address is required." }, { status: 400 });
   }
 
-  const result = await smartyVerifyAddress({ street, city, state, zip });
+  const result = await geocodeAddress({ street, city, state, zip });
 
   if (!result.valid) {
     return NextResponse.json({ valid: false, message: result.message });
   }
 
-  const suggested = { street: result.street, city: result.city, state: result.state, zip: result.zip };
-  return NextResponse.json({ valid: true, suggested });
+  return NextResponse.json({ valid: true, suggested: result.address });
 }
