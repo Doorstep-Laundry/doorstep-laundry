@@ -1,6 +1,7 @@
 import { getCompanyInfo, getMaxServiceDistanceMiles } from "@/lib/settings";
 import { geocodeAddress } from "@/lib/geocode";
 
+
 type LatLng = { lat: number; lng: number };
 
 let facilityLatLngCache: { at: number; value: LatLng | null; address: string } | null = null;
