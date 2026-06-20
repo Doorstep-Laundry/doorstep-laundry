@@ -2,6 +2,8 @@
 
 Use this checklist before releasing new versions of the site. Each section covers a distinct feature area. Items marked **(Admin)**, **(Staff)**, or **(Driver)** require the appropriate role.
 
+Items marked **🤖** are covered by Playwright E2E tests and run automatically in CI — skip them during manual passes unless investigating a regression.
+
 ---
 
 ## Authentication & Accounts
@@ -15,8 +17,8 @@ Use this checklist before releasing new versions of the site. Each section cover
 - [ ] Sign up with an invalid email format — expect a validation error
 
 ### Sign In
-- [ ] Log in with valid credentials
-- [ ] Log in with wrong password — expect an error
+- [x] 🤖 Log in with valid credentials *(auth.spec.ts)*
+- [x] 🤖 Log in with wrong password — expect an error *(auth.spec.ts)*
 - [ ] Log in with an unverified email — expect a clear message and "resend verification" option
 - [ ] Resend verification email and confirm delivery
 
@@ -29,22 +31,23 @@ Use this checklist before releasing new versions of the site. Each section cover
 - [ ] Use an expired or already-used reset link — expect a rejection
 
 ### Role-Based Redirects
-- [ ] Customer logs in → redirected to `/dashboard`
-- [ ] Staff/admin logs in → redirected to `/wash`
-- [ ] Logged-in user visits `/login` or `/signup` → redirected to their dashboard
+- [x] 🤖 Customer logs in → redirected to `/dashboard` *(auth.spec.ts)*
+- [x] 🤖 Staff/admin logs in → redirected to `/wash` *(auth.spec.ts)*
+- [x] 🤖 Logged-in user visits `/login` or `/signup` → redirected to their dashboard *(auth.spec.ts)*
 
 ---
 
 ## Booking a New Order (Customer)
 
 ### Step 1 — Loads & Options
-- [ ] Select 1 load and confirm the form shows only 1 load panel
-- [ ] Select 10 loads (max) and confirm the form shows 10 load panels
+- [x] 🤖 Select 1 load and confirm the form shows only 1 load panel *(booking.spec.ts)*
+- [x] 🤖 Select 10 loads (max) and confirm the form shows 10 load panels *(booking.spec.ts)*
 - [ ] Toggle all per-load options (hot water, bleach, hypoallergenic, delicate cycle, scent-free, cold water only) and confirm they save
 - [ ] Add a bulky item (comforter, pillows, sheets, blanket) to a load
 - [ ] Confirm default load options (set in account) are pre-checked
 
 ### Step 2 — Dates & Times
+- [x] 🤖 Pickup and delivery date/time fields appear after Step 1 *(booking.spec.ts)*
 - [ ] Verify that only admin-enabled days/slots are selectable for pickup
 - [ ] Verify that only admin-enabled days/slots are selectable for delivery
 - [ ] Confirm that delivery date cannot be before pickup date
@@ -264,9 +267,9 @@ Use this checklist before releasing new versions of the site. Each section cover
 
 ## Legal Pages
 
-- [ ] `/legal/terms` loads without errors
-- [ ] `/legal/privacy` loads without errors
-- [ ] `/legal/sms` loads without errors
+- [x] 🤖 `/legal/terms` loads without errors *(legal.spec.ts)*
+- [x] 🤖 `/legal/privacy` loads without errors *(legal.spec.ts)*
+- [x] 🤖 `/legal/sms` loads without errors *(legal.spec.ts)*
 - [ ] Links to legal pages from signup/account pages work
 
 ---
@@ -274,15 +277,15 @@ Use this checklist before releasing new versions of the site. Each section cover
 ## Edge Cases & Error States
 
 - [ ] Booking with 0 loads is not allowed
-- [ ] Booking with more than 10 loads is not allowed
+- [x] 🤖 Booking with more than 10 loads is not allowed — Add Load button is disabled at 10 *(booking.spec.ts)*
 - [ ] An order cannot be edited after it has been picked up
 - [ ] An address in use by an order cannot be deleted
-- [ ] Navigating to an order that belongs to another customer returns a 404 or redirect
-- [ ] A customer cannot access `/admin`, `/wash`, or `/driver` — expect a redirect or 403
-- [ ] A staff member cannot access `/admin` — expect a redirect or 403
-- [ ] Accessing a protected page while logged out redirects to `/login`
-- [ ] Stripe webhook fires correctly on test payment and updates order status
+- [x] 🤖 Navigating to an order that belongs to another customer returns a 404 or redirect *(edge-cases.spec.ts)*
+- [x] 🤖 A customer cannot access `/admin`, `/wash`, or `/driver` — redirected to `/dashboard` *(edge-cases.spec.ts)*
+- [x] 🤖 A staff member cannot access `/admin` — redirected *(edge-cases.spec.ts)*
+- [x] 🤖 Accessing a protected page while logged out redirects to `/login` *(edge-cases.spec.ts)*
+- [ ] Stripe webhook fires correctly on test payment and updates order status `@stripe`
 
 ---
 
-*Last updated: 2026-06-15*
+*Last updated: 2026-06-20*
