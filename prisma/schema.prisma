@@ -26,6 +26,7 @@ enum CustomerType {
 
 enum OrderStatus {
   scheduled
+  out_for_pickup
   picked_up
   ready_for_wash
   in_progress

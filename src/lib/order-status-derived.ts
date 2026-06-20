@@ -31,6 +31,7 @@ export function getDerivedOrderStatus(
 
 export const DERIVED_STATUS_LABEL: Record<string, string> = {
   scheduled: "Scheduled",
+  out_for_pickup: "Out for pickup",
   picked_up: "Picked up",
   ready_for_wash: "Ready for wash",
   in_progress: "In progress",

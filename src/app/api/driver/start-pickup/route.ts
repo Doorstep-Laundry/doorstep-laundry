@@ -5,8 +5,9 @@ import { prisma } from "@/lib/db";
 import { sendOrderNotification } from "@/lib/notify";
 
 /**
- * POST: Start a pickup run. Transition selected scheduled orders to picked_up
- * and set all their loads to status "picked_up".
+ * POST: Start a pickup run. Transition selected scheduled orders to out_for_pickup.
+ * Loads are NOT moved yet — load counts and statuses are confirmed when the driver
+ * arrives at the customer via POST /api/driver/confirm-pickup.
  * Body: { orderIds: string[] }
  */
 export async function POST(request: Request) {
@@ -35,7 +36,6 @@ export async function POST(request: Request) {
 
   const orders = await prisma.order.findMany({
     where: { id: { in: orderIds } },
-    include: { orderLoads: true },
   });
 
   if (orders.length !== orderIds.length) {
@@ -53,40 +53,20 @@ export async function POST(request: Request) {
 
   for (const order of orders) {
     const orderId = order.id;
-    const existingLoads = order.orderLoads ?? [];
-    const needLoads = order.numberOfLoads - existingLoads.length;
-
-    if (needLoads > 0) {
-      for (let n = existingLoads.length + 1; n <= order.numberOfLoads; n++) {
-        await prisma.orderLoad.create({
-          data: {
-            orderId,
-            loadNumber: n,
-            loadCode: `${order.orderNumber}-L${n}`,
-            status: "picked_up",
-          },
-        });
-      }
-    }
-
     await prisma.order.update({
       where: { id: orderId },
-      data: { status: "picked_up" },
+      data: { status: "out_for_pickup" },
     });
     await prisma.orderStatusHistory.create({
       data: {
         orderId,
-        status: "picked_up",
-        note: "Pickup run started (driver)",
+        status: "out_for_pickup",
+        note: "Pickup route started (driver)",
         changedById: userId,
       },
     });
-    await prisma.orderLoad.updateMany({
-      where: { orderId },
-      data: { status: "picked_up" },
-    });
-    await sendOrderNotification(orderId, "picked_up").catch((e) =>
-      console.error("Notify picked_up:", e)
+    await sendOrderNotification(orderId, "out_for_pickup").catch((e) =>
+      console.error("Notify out_for_pickup:", e)
     );
   }
 

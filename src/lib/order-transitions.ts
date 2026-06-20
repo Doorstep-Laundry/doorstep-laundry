@@ -1,5 +1,6 @@
 export type OrderStatus =
   | "scheduled"
+  | "out_for_pickup"
   | "picked_up"
   | "ready_for_wash"
   | "in_progress"
@@ -9,7 +10,8 @@ export type OrderStatus =
   | "cancelled";
 
 export const VALID_ORDER_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
-  scheduled: ["picked_up", "cancelled"],
+  scheduled: ["out_for_pickup", "cancelled"],
+  out_for_pickup: ["picked_up", "cancelled"],
   picked_up: ["ready_for_wash", "in_progress", "cancelled"],
   ready_for_wash: ["in_progress", "cancelled"],
   in_progress: ["ready_for_delivery", "cancelled"],

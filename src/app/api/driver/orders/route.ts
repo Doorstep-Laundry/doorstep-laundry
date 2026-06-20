@@ -36,15 +36,15 @@ export async function GET(request: Request) {
 
   const now = new Date();
 
-  // Pickups: scheduled orders
+  // Pickups: scheduled orders + out_for_pickup orders (driver en route)
   const scheduledOrders = await prisma.order.findMany({
-    where: { status: "scheduled" },
+    where: { status: { in: ["scheduled", "out_for_pickup"] } },
     include,
     orderBy: { pickupDate: "asc" },
   });
   const pickups = windowNow
     ? scheduledOrders.filter((o) =>
-        isInTimeWindow(o.pickupDate, o.pickupTimeSlot, now)
+        o.status === "out_for_pickup" || isInTimeWindow(o.pickupDate, o.pickupTimeSlot, now)
       )
     : scheduledOrders;
 

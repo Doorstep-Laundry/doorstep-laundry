@@ -63,30 +63,37 @@ On success, the API creates:
 
 ### How orders appear on the driver page
 
-The driver page (`/driver`) shows a table of orders with `status = scheduled`. The driver can optionally filter to only show orders whose pickup time window includes the current time.
+The driver page (`/driver`) shows a **Pickups (scheduled)** table of orders with `status = scheduled`. The driver can optionally filter to only show orders whose pickup time window includes the current time.
 
-### Starting a pickup run
+### Step 1 — Start the route
 
-The driver selects one or more orders and taps **Start route**. This calls `POST /api/driver/start-pickup`.
+The driver selects one or more scheduled orders and taps **Start route**. This calls `POST /api/driver/start-pickup`.
 
 **State change:**
-- Order: `scheduled → picked_up`
-- All loads: cascade to `picked_up`
-- An `OrderStatusHistory` entry is recorded: "Pickup run started (driver)"
+- Order: `scheduled → out_for_pickup`
+- Loads: unchanged (still `scheduled`) — load counts are not committed until the driver arrives
+- An `OrderStatusHistory` entry is recorded: "Pickup route started (driver)"
+
+**Notifications sent:** Email + SMS → `out_for_pickup` ("Our driver is on the way to pick up your laundry.")
+
+The orders move out of the scheduled pickups table and appear in a new **En route to pickup** section on the driver page.
+
+### Step 2 — Confirm pickup at the customer's door
+
+When the driver arrives at a customer's address, they confirm the actual number of bags collected (which may differ from the customer's estimate) and tap **Confirm pickup**. This calls `POST /api/driver/confirm-pickup`.
+
+**State change:**
+- Order: `out_for_pickup → picked_up`; `numberOfLoads` updated to the confirmed count
+- Loads: created/synced to match confirmed count, all set to `picked_up`
+- An `OrderStatusHistory` entry is recorded: "Pickup confirmed (driver) — N load(s)"
 
 **Notifications sent:** Email + SMS → `picked_up`
 
-> **⚠️ Missing state — "out for pickup"**
->
-> The `picked_up` status is set at the moment the driver *starts the run*, not when the driver physically arrives at the customer's door. There is no intermediate `out_for_pickup` order status. The notification system defines an `out_for_pickup` event but it is not wired to a status change. As a result, the customer receives a "your laundry has been picked up" message before the driver has arrived.
->
-> A future `out_for_pickup` status between `scheduled` and `picked_up` would allow the system to send an accurate "driver is on the way" notification, and would make it possible to distinguish "driver en route" from "bags physically collected."
-
 ### After the driver has the bags
 
-While an order is in `picked_up` status, the driver (or staff) can add or remove loads:
+While an order is in `picked_up` status, staff can still add or remove loads if a correction is needed:
 - **Add a load:** `POST /api/orders/{orderId}/loads` — increments `numberOfLoads`, creates a new `OrderLoad` at `picked_up`
-- **Remove the last load:** `DELETE /api/orders/{orderId}/loads` — only allowed while order is `scheduled` or `picked_up`; minimum of 1 load must remain
+- **Remove the last load:** `DELETE /api/orders/{orderId}/loads` — only allowed while order is `scheduled`, `out_for_pickup`, or `picked_up`; minimum of 1 load must remain
 
 ---
 
@@ -250,7 +257,8 @@ Staff or the customer can also download the receipt directly from the order deta
 | Event | When sent | Channel | Key content |
 |---|---|---|---|
 | `order_created` | Order placed | Email + SMS | Order number, dates, slot times |
-| `picked_up` | Driver starts pickup run | Email + SMS | Confirmation bags are collected |
+| `out_for_pickup` | Driver starts pickup route | Email + SMS | "Driver is on the way" |
+| `picked_up` | Driver confirms pickup at door | Email + SMS | Confirmation bags are collected |
 | `in_progress` | First load enters wash | Email + SMS | Wash underway |
 | `ready_for_payment` | All loads weighed | Email + SMS | Total, weight, payment link |
 | `out_for_delivery` | Driver starts delivery run | Email + SMS | On the way |
@@ -273,9 +281,15 @@ CUSTOMER BOOKS
   Payment: pending
         │
         ▼
-DRIVER STARTS PICKUP RUN          ← ⚠️ no "out_for_pickup" state; order jumps to picked_up immediately
+DRIVER STARTS PICKUP ROUTE
+  Order: out_for_pickup
+  Loads: unchanged (still scheduled)
+  Notifications: out_for_pickup (Email + SMS — "driver is on the way")
+        │
+        ▼
+DRIVER ARRIVES AT CUSTOMER & CONFIRMS PICKUP (with actual bag count)
   Order: picked_up
-  Loads: picked_up
+  Loads: created/synced to confirmed count, all picked_up
   Notifications: picked_up (Email + SMS)
         │
         ▼

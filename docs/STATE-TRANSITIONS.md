@@ -5,13 +5,14 @@
 Main flow:
 
 ```
-scheduled → picked_up → ready_for_wash → in_progress → ready_for_delivery → out_for_delivery → delivered
+scheduled → out_for_pickup → picked_up → ready_for_wash → in_progress → ready_for_delivery → out_for_delivery → delivered
 ```
 
 | Status | Description |
 |---|---|
 | `scheduled` | Order created, awaiting pickup |
-| `picked_up` | Driver collected the laundry |
+| `out_for_pickup` | Driver en route to customer's door |
+| `picked_up` | Driver confirmed pickup; bags in transit to facility |
 | `ready_for_wash` | All loads assigned to shelf locations |
 | `in_progress` | At least one load is being washed/dried/folded |
 | `ready_for_delivery` | All loads cleaned and weighed; ready to ship |
@@ -72,8 +73,10 @@ Order ready_for_delivery → out_for_delivery → delivered
 
 | From | To | Who | Extra inputs required |
 |---|---|---|---|
-| `scheduled` | `picked_up` | Staff/admin | — |
+| `scheduled` | `out_for_pickup` | Staff/admin | — |
 | `scheduled` | `cancelled` | Staff/admin | — |
+| `out_for_pickup` | `picked_up` | Staff/admin | — |
+| `out_for_pickup` | `cancelled` | Staff/admin | — |
 | `picked_up` | `ready_for_wash` | Staff/admin | — |
 | `picked_up` | `in_progress` | Staff/admin | — |
 | `picked_up` | `cancelled` | Staff/admin | — |
@@ -89,11 +92,12 @@ Validation: `VALID_ORDER_TRANSITIONS` map in [src/lib/order-transitions.ts](../s
 
 ### Driver-triggered transitions
 
-| Endpoint | From | To | Guards |
-|---|---|---|---|
-| `POST /api/driver/start-pickup` | `scheduled` → `picked_up` | Order must be `scheduled` |
-| `POST /api/driver/run` | `ready_for_delivery` → `out_for_delivery` | Order must be `ready_for_delivery`; **all** loads must be `ready_for_delivery` |
-| `POST /api/driver/complete-delivery` | `out_for_delivery` → `delivered` | Order must be `out_for_delivery` |
+| Endpoint | From → To | Guards |
+|---|---|---|
+| `POST /api/driver/start-pickup` | `scheduled → out_for_pickup` | Order must be `scheduled`. Loads unchanged. Sends `out_for_pickup` notification. |
+| `POST /api/driver/confirm-pickup` | `out_for_pickup → picked_up` | Order must be `out_for_pickup`. Driver provides confirmed `numberOfLoads`. Loads created/synced to `picked_up`. Sends `picked_up` notification. |
+| `POST /api/driver/run` | `ready_for_delivery → out_for_delivery` | Order must be `ready_for_delivery`; **all** loads must be `ready_for_delivery` |
+| `POST /api/driver/complete-delivery` | `out_for_delivery → delivered` | Order must be `out_for_delivery` |
 
 ### Payment-triggered transitions
 

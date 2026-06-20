@@ -23,6 +23,7 @@ type OrderRow = {
 
 const STATUS_LABEL: Record<string, string> = {
   scheduled: "Scheduled",
+  out_for_pickup: "Out for pickup",
   ready_for_delivery: "Ready for delivery",
   out_for_delivery: "Out for delivery",
 };
@@ -48,12 +49,25 @@ export function DriverDashboard() {
   const [deliveringId, setDeliveringId] = useState<string | null>(null);
   const [locationSharing, setLocationSharing] = useState(false);
   const [adjustingLoadsOrderId, setAdjustingLoadsOrderId] = useState<string | null>(null);
+  const [confirmLoadCounts, setConfirmLoadCounts] = useState<Record<string, number>>({});
+  const [confirmingPickupId, setConfirmingPickupId] = useState<string | null>(null);
 
   const fetchOrders = useCallback(async () => {
     const res = await fetch(`/api/driver/orders?window=${windowFilter}`);
     const data = await res.json().catch(() => ({}));
-    setPickups(Array.isArray(data.pickups) ? data.pickups : []);
+    const allPickups: OrderRow[] = Array.isArray(data.pickups) ? data.pickups : [];
+    setPickups(allPickups);
     setDeliveries(Array.isArray(data.deliveries) ? data.deliveries : []);
+    // Seed confirm load counts for any out_for_pickup orders not yet in state
+    setConfirmLoadCounts((prev) => {
+      const next = { ...prev };
+      for (const o of allPickups) {
+        if (o.status === "out_for_pickup" && !(o.id in next)) {
+          next[o.id] = o.numberOfLoads;
+        }
+      }
+      return next;
+    });
   }, [windowFilter]);
 
   const fetchRun = useCallback(async () => {
@@ -72,6 +86,9 @@ export function DriverDashboard() {
     setLoading(true);
     Promise.all([fetchOrders(), fetchRun()]).finally(() => setLoading(false));
   }, [fetchOrders, fetchRun]);
+
+  const scheduledPickups = pickups.filter((o) => o.status === "scheduled");
+  const activePickups = pickups.filter((o) => o.status === "out_for_pickup");
 
   const deliveryOrdersAvailable = deliveries.filter(
     (o) => o.status === "ready_for_delivery"
@@ -105,10 +122,10 @@ export function DriverDashboard() {
   };
 
   const selectAllPickups = () => {
-    if (selectedPickupIds.size === pickups.length) {
+    if (selectedPickupIds.size === scheduledPickups.length) {
       setSelectedPickupIds(new Set());
     } else {
-      setSelectedPickupIds(new Set(pickups.map((o) => o.id)));
+      setSelectedPickupIds(new Set(scheduledPickups.map((o) => o.id)));
     }
   };
 
@@ -173,10 +190,7 @@ export function DriverDashboard() {
         const res = await fetch("/api/driver/run", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            orderIds: deliveryIds,
-            ...(pickupIds.length > 0 && { pickupOrderIds: pickupIds }),
-          }),
+          body: JSON.stringify({ orderIds: deliveryIds }),
         });
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
@@ -190,6 +204,31 @@ export function DriverDashboard() {
       await fetchOrders();
     } finally {
       setStarting(false);
+    }
+  };
+
+  const handleConfirmPickup = async (orderId: string) => {
+    const numberOfLoads = confirmLoadCounts[orderId] ?? 1;
+    setConfirmingPickupId(orderId);
+    try {
+      const res = await fetch("/api/driver/confirm-pickup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orders: [{ orderId, numberOfLoads }] }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error ?? "Failed to confirm pickup");
+        return;
+      }
+      setConfirmLoadCounts((prev) => {
+        const next = { ...prev };
+        delete next[orderId];
+        return next;
+      });
+      await fetchOrders();
+    } finally {
+      setConfirmingPickupId(null);
     }
   };
 
@@ -333,14 +372,86 @@ export function DriverDashboard() {
         </div>
       )}
 
+      {/* Active pickup stops — orders the driver is en route to pick up */}
+      {activePickups.length > 0 && (
+        <div className="rounded-2xl border border-amber-200 bg-white shadow-sm overflow-hidden">
+          <h2 className="px-4 py-3 text-sm font-semibold text-amber-800 border-b border-amber-200 bg-amber-50">
+            En route to pickup
+          </h2>
+          <p className="px-4 py-2 text-xs text-fern-500 border-b border-fern-100">
+            Confirm each pickup when you arrive. Adjust the bag count if it differs from what the customer estimated.
+          </p>
+          <ul className="divide-y divide-fern-200">
+            {activePickups.map((order) => {
+              const loadCount = confirmLoadCounts[order.id] ?? order.numberOfLoads;
+              return (
+                <li key={order.id} className="px-4 py-4 flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <span className="font-mono text-sm font-medium text-fern-900">
+                      {order.orderNumber}
+                    </span>
+                    <p className="text-sm text-fern-600 mt-0.5">
+                      {order.pickupAddress ? formatAddress(order.pickupAddress) : "—"}
+                    </p>
+                    <p className="text-xs text-fern-500">
+                      {order.customer.name ?? order.customer.email}
+                    </p>
+                  </div>
+                  <div className="flex flex-col items-end gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-fern-500">Bags</span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setConfirmLoadCounts((prev) => ({
+                            ...prev,
+                            [order.id]: Math.max(1, (prev[order.id] ?? order.numberOfLoads) - 1),
+                          }))
+                        }
+                        disabled={loadCount <= 1}
+                        className="rounded border border-fern-200 bg-white px-2 py-0.5 text-sm text-fern-700 hover:bg-fern-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                        aria-label="Remove one bag"
+                      >
+                        −
+                      </button>
+                      <span className="text-sm font-medium text-fern-800 tabular-nums min-w-[1.25rem] text-center">
+                        {loadCount}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setConfirmLoadCounts((prev) => ({
+                            ...prev,
+                            [order.id]: (prev[order.id] ?? order.numberOfLoads) + 1,
+                          }))
+                        }
+                        className="rounded border border-fern-200 bg-white px-2 py-0.5 text-sm text-fern-700 hover:bg-fern-50"
+                        aria-label="Add one bag"
+                      >
+                        +
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleConfirmPickup(order.id)}
+                      disabled={confirmingPickupId === order.id}
+                      className="rounded-lg bg-fern-500 text-white px-4 py-2 text-sm font-medium hover:bg-fern-600 disabled:opacity-50"
+                    >
+                      {confirmingPickupId === order.id ? "Confirming…" : "Confirm pickup"}
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+
       {hasRun ? (
         <div className="rounded-2xl border border-fern-200/80 bg-white shadow-sm overflow-hidden">
           <h2 className="px-4 py-3 text-sm font-semibold text-fern-800 border-b border-fern-200">
-            Current run – Pickups and deliveries
+            Current run – Deliveries
           </h2>
-          <p className="px-4 py-2 text-xs text-fern-500 border-b border-fern-100 bg-fern-50/50">
-            At pickup, use Loads + / − on each pickup stop if the actual bags don’t match what was scheduled.
-          </p>
           <ul className="divide-y divide-fern-200">
             {runStops.map(({ type, order }, index) => (
               <li key={order.id} className="px-4 py-4 flex flex-wrap items-center justify-between gap-3">
@@ -420,7 +531,7 @@ export function DriverDashboard() {
                       </p>
                       {(order.orderLoads ?? []).length === 0 ? (
                         <p className="text-xs text-fern-500 text-right">
-                          No load rows yet. Start pickup or refresh—loads appear after pickup starts or from Wash.
+                          No load rows yet. Confirm pickup or refresh.
                         </p>
                       ) : (
                         <ul className="flex flex-wrap gap-1.5 justify-end">
@@ -452,7 +563,7 @@ export function DriverDashboard() {
         </div>
       ) : null}
 
-      {pickups.length > 0 && (
+      {scheduledPickups.length > 0 && (
         <div className="rounded-2xl border border-fern-200/80 bg-white shadow-sm overflow-hidden p-4">
           <div className="py-3 border-b border-fern-200 flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-sm font-semibold text-fern-800">
@@ -463,12 +574,11 @@ export function DriverDashboard() {
               onClick={selectAllPickups}
               className="text-sm font-medium text-fern-600 hover:text-fern-900"
             >
-              {selectedPickupIds.size === pickups.length ? "Deselect all" : "Select all"}
+              {selectedPickupIds.size === scheduledPickups.length ? "Deselect all" : "Select all"}
             </button>
           </div>
           <p className="py-2 text-xs text-fern-500 border-b border-fern-100">
-            Select orders and start a route. After you start, adjust load counts on each pickup stop in{" "}
-            <span className="font-medium text-fern-600">Current run</span> when you’re at the customer.
+            Select orders and tap <span className="font-medium text-fern-600">Start route</span>. When you arrive at each customer, confirm the pickup in the <span className="font-medium text-fern-600">En route to pickup</span> section above.
           </p>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-fern-200">
@@ -483,7 +593,7 @@ export function DriverDashboard() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-fern-200">
-                {pickups.map((order) => (
+                {scheduledPickups.map((order) => (
                   <tr key={order.id}>
                     <td className="px-2 py-2">
                       <input
@@ -527,7 +637,7 @@ export function DriverDashboard() {
           </button>
         </div>
         <p className="py-2 text-xs text-fern-500 border-b border-fern-100 mb-3">
-          Only orders with all loads ready can be picked up. Use the controls above to select orders, optimize route, then Start route.
+          Only orders with all loads ready can be delivered. Use the controls above to select orders, optimize route, then Start route.
         </p>
         {deliveryOrdersAvailable.length === 0 ? (
           <p className="text-sm text-fern-500">No orders ready for delivery.</p>
