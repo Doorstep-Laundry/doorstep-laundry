@@ -39,8 +39,7 @@ test.describe("Book a pickup", () => {
   test("Step 2 shows date and time fields after continuing from step 1", async ({ page }) => {
     await page.goto("/book");
     await page.getByRole("button", { name: /continue to address/i }).click();
-    // "Pickup:" label is unique to the date/time step
-    await expect(page.getByText("Pickup:")).toBeVisible({ timeout: 5_000 });
-    await expect(page.getByText("Delivery:")).toBeVisible();
+    await expect(page.getByText("Pickup date")).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText("Delivery date")).toBeVisible();
   });
 });

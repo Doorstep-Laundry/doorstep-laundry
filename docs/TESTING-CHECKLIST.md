@@ -47,7 +47,7 @@ Items marked **🤖** are covered by Playwright E2E tests and run automatically 
 - [ ] Confirm default load options (set in account) are pre-checked
 
 ### Step 2 — Dates & Times
-- [x] 🤖 Pickup and delivery date/time fields appear after Step 1 *(booking.spec.ts)*
+- [x] 🤖 "Pickup date" and "Delivery date" fields appear after Step 1 *(booking.spec.ts)*
 - [ ] Verify that only admin-enabled days/slots are selectable for pickup
 - [ ] Verify that only admin-enabled days/slots are selectable for delivery
 - [ ] Confirm that delivery date cannot be before pickup date
