@@ -52,6 +52,7 @@ jobs:
       DATABASE_URL_TEST: postgresql://postgres:postgres@localhost:5432/laundry_test
       NEXTAUTH_SECRET: ci-secret-not-for-production
       NEXTAUTH_URL: http://localhost:3000
+      # Stripe secrets only matter on push to dev/main (PRs skip @stripe tests)
       NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
       STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
       STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
@@ -76,8 +77,17 @@ jobs:
       - name: Seed test database
         run: npm run db:seed:test
 
+      - name: Set Playwright grep args
+        id: pw-args
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "args=" >> $GITHUB_OUTPUT
+          else
+            echo 'args=--grep-invert "@stripe"' >> $GITHUB_OUTPUT
+          fi
+
       - name: Run E2E tests
-        run: npm run test:e2e
+        run: npx playwright test ${{ steps.pw-args.outputs.args }}
 
       - name: Upload Playwright report
         if: failure()
