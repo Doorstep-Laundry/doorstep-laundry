@@ -1,6 +1,11 @@
 import { defineConfig, devices } from "@playwright/test";
+import { config } from "dotenv";
+
+// Load .env so DATABASE_URL_TEST etc. are available in this config process
+config();
 
 const BASE_URL = process.env.E2E_BASE_URL ?? "http://localhost:3000";
+const testDbUrl = process.env.DATABASE_URL_TEST;
 
 export default defineConfig({
   testDir: "./e2e",
@@ -35,7 +40,9 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
     env: {
-      DATABASE_URL: process.env.DATABASE_URL_TEST ?? process.env.DATABASE_URL ?? "",
+      // Only override DATABASE_URL when a test-specific URL is set.
+      // If unset, Next.js loads DATABASE_URL from .env itself.
+      ...(testDbUrl ? { DATABASE_URL: testDbUrl } : {}),
       NEXTAUTH_URL: BASE_URL,
     },
   },
