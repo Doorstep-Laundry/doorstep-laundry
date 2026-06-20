@@ -65,7 +65,7 @@ export async function POST(request: Request) {
   // -- Handle credited loads --
   const { pickCreditedLoadIndices, computeLoadCostCents } = await import("@/lib/checkout-line-items");
   const creditedCount = order.orderLoads.filter((l) => l.creditedLoad).length;
-  const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
+  const baseUrl = (process.env.NEXTAUTH_URL ?? "http://localhost:3000").replace(/\/$/, "");
 
   if (creditedCount > 0) {
     // Re-assign creditedLoad to the heaviest N loads (most expensive first)
