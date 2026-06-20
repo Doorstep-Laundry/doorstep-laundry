@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Playwright E2E Implementation Plan</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --green: #3a6b47;
+    --green-light: #e8f2ec;
+    --green-mid: #c3deca;
+    --amber: #92400e;
+    --amber-light: #fef3c7;
+    --blue: #1e3a5f;
+    --blue-light: #e8f0fa;
+    --gray: #374151;
+    --gray-light: #f9fafb;
+    --gray-mid: #e5e7eb;
+    --red-light: #fef2f2;
+    --red: #991b1b;
+    --mono: "SF Mono", "Fira Code", "Consolas", monospace;
+    --sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  body { font-family: var(--sans); color: var(--gray); background: #fff; line-height: 1.6; }
+  .page { max-width: 960px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+
+  h1 { font-size: 1.75rem; font-weight: 700; color: var(--green); margin-bottom: 0.25rem; }
+  .subtitle { font-size: 0.95rem; color: #6b7280; margin-bottom: 2rem; }
+
+  h2 { font-size: 1.2rem; font-weight: 700; color: var(--blue); margin: 2rem 0 0.75rem; padding-bottom: 0.4rem; border-bottom: 2px solid var(--gray-mid); }
+  h3 { font-size: 1rem; font-weight: 600; color: var(--gray); margin: 1.25rem 0 0.5rem; }
+  h4 { font-size: 0.9rem; font-weight: 600; color: var(--gray); margin: 0.75rem 0 0.35rem; }
+
+  p { margin-bottom: 0.6rem; font-size: 0.92rem; }
+  ul, ol { padding-left: 1.4rem; font-size: 0.9rem; margin-bottom: 0.75rem; }
+  li { margin-bottom: 0.3rem; }
+
+  code { font-family: var(--mono); font-size: 0.82rem; background: var(--gray-light); border: 1px solid var(--gray-mid); border-radius: 4px; padding: 0.1rem 0.35rem; }
+  pre { font-family: var(--mono); font-size: 0.8rem; background: #1e293b; color: #e2e8f0; border-radius: 8px; padding: 1.2rem 1.4rem; overflow-x: auto; margin: 0.75rem 0 1rem; line-height: 1.55; }
+  pre code { background: none; border: none; padding: 0; font-size: inherit; color: inherit; }
+  .comment { color: #94a3b8; }
+  .key { color: #93c5fd; }
+  .str { color: #86efac; }
+  .kw { color: #f9a8d4; }
+  .fn { color: #fcd34d; }
+
+  .phase-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin: 1rem 0 1.5rem; }
+  @media (max-width: 640px) { .phase-grid { grid-template-columns: 1fr; } }
+
+  .phase-card { border-radius: 10px; padding: 1rem 1.1rem; border: 1px solid; }
+  .phase-1 { background: var(--green-light); border-color: var(--green-mid); }
+  .phase-2 { background: var(--amber-light); border-color: #fde68a; }
+  .phase-3 { background: var(--blue-light); border-color: #bfdbfe; }
+  .phase-card .tag { display: inline-block; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; border-radius: 4px; padding: 0.15rem 0.5rem; margin-bottom: 0.5rem; }
+  .phase-1 .tag { background: var(--green); color: #fff; }
+  .phase-2 .tag { background: var(--amber); color: #fff; }
+  .phase-3 .tag { background: var(--blue); color: #fff; }
+  .phase-card h3 { margin: 0 0 0.4rem; font-size: 0.92rem; }
+  .phase-card ul { margin: 0; padding-left: 1.1rem; font-size: 0.83rem; }
+
+  .callout { border-radius: 8px; padding: 0.85rem 1.1rem; margin: 0.75rem 0 1rem; font-size: 0.88rem; border-left: 4px solid; }
+  .callout-warn { background: var(--amber-light); border-color: #f59e0b; }
+  .callout-info { background: var(--blue-light); border-color: #3b82f6; }
+  .callout-danger { background: var(--red-light); border-color: #ef4444; }
+  .callout-success { background: var(--green-light); border-color: var(--green); }
+  .callout strong { display: block; margin-bottom: 0.25rem; }
+
+  .file-tree { font-family: var(--mono); font-size: 0.82rem; background: var(--gray-light); border: 1px solid var(--gray-mid); border-radius: 8px; padding: 1rem 1.2rem; overflow-x: auto; line-height: 1.7; margin: 0.5rem 0 1rem; }
+  .file-tree .dir { color: var(--blue); font-weight: 600; }
+  .file-tree .file { color: var(--gray); }
+  .file-tree .new { color: var(--green); }
+  .file-tree .comment { color: #9ca3af; font-size: 0.78rem; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin: 0.5rem 0 1.25rem; overflow-x: auto; display: block; }
+  th { background: var(--green); color: #fff; text-align: left; padding: 0.55rem 0.8rem; font-weight: 600; }
+  td { padding: 0.5rem 0.8rem; border-bottom: 1px solid var(--gray-mid); vertical-align: top; }
+  tr:nth-child(even) td { background: var(--gray-light); }
+
+  .badge { display: inline-block; font-size: 0.72rem; font-weight: 600; border-radius: 9999px; padding: 0.15rem 0.55rem; }
+  .badge-green { background: var(--green-light); color: var(--green); }
+  .badge-amber { background: var(--amber-light); color: var(--amber); }
+  .badge-red { background: var(--red-light); color: var(--red); }
+  .badge-blue { background: var(--blue-light); color: var(--blue); }
+
+  .toc { background: var(--gray-light); border: 1px solid var(--gray-mid); border-radius: 8px; padding: 1rem 1.4rem; margin-bottom: 2rem; font-size: 0.88rem; }
+  .toc ol { margin: 0; }
+  .toc li { margin-bottom: 0.2rem; }
+  .toc a { color: var(--green); text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+
+  .section-anchor { scroll-margin-top: 1rem; }
+  hr { border: none; border-top: 1px solid var(--gray-mid); margin: 2rem 0; }
+</style>
+</head>
+<body>
+<div class="page">
+
+<h1>Playwright E2E Implementation Plan</h1>
+<p class="subtitle">Doorstep Laundry — Next.js 16 / Prisma / NextAuth / Stripe &nbsp;·&nbsp; Phased rollout targeting existing CI pipeline</p>
+
+<nav class="toc">
+  <strong style="display:block;margin-bottom:0.5rem;color:var(--blue)">Contents</strong>
+  <ol>
+    <li><a href="#constraints">Key Constraints from the Codebase</a></li>
+    <li><a href="#phases">Phase Overview</a></li>
+    <li><a href="#step1">Step 1 — Install &amp; Configure Playwright</a></li>
+    <li><a href="#step2">Step 2 — Directory Structure</a></li>
+    <li><a href="#step3">Step 3 — Test Database &amp; Environment Strategy</a></li>
+    <li><a href="#step4">Step 4 — Fixtures &amp; Auth Helpers</a></li>
+    <li><a href="#step5">Step 5 — Phase 1 Test Files (Auth + RBAC)</a></li>
+    <li><a href="#step6">Step 6 — Phase 2 Test Files (Booking + Dashboard)</a></li>
+    <li><a href="#step7">Step 7 — Phase 3 Test Files (Staff + Admin)</a></li>
+    <li><a href="#step8">Step 8 — GitHub Actions CI Job</a></li>
+    <li><a href="#step9">Step 9 — Notification &amp; Stripe Mocking Strategy</a></li>
+    <li><a href="#step10">Step 10 — Rollout Checklist</a></li>
+  </ol>
+</nav>
+
+<!-- ── CONSTRAINTS ──────────────────────────────────────────────────── -->
+<h2 id="constraints" class="section-anchor">1. Key Constraints Discovered in the Codebase</h2>
+
+<p>These constraints directly shape which tests can run in CI and which require special handling.</p>
+
+<table>
+<thead><tr><th>Constraint</th><th>Where it lives</th><th>Impact on tests</th></tr></thead>
+<tbody>
+<tr>
+  <td><strong>Signup requires <code>RESEND_API_KEY</code></strong></td>
+  <td><code>src/app/api/auth/signup/route.ts</code> — returns 503 if key is missing</td>
+  <td>Do not test the full signup flow in CI by default. Use seed-created users. For signup-flow tests, mock Resend at the module level or provide a real (cheap) Resend test key.</td>
+</tr>
+<tr>
+  <td><strong>Auth is credential-only in CI</strong></td>
+  <td><code>src/lib/auth.ts</code> — Google provider is conditional on env vars</td>
+  <td>Only test credential login. Seed users all have <code>emailVerifiedAt</code> set and password <code>mypass1.</code></td>
+</tr>
+<tr>
+  <td><strong>Email verification flow</strong></td>
+  <td><code>src/app/api/auth/verify-email/route.ts</code> — token stored in DB</td>
+  <td>Can be tested by inserting a token directly via the seed or a setup API call, then calling the verify endpoint with that token.</td>
+</tr>
+<tr>
+  <td><strong>Address service area</strong></td>
+  <td><code>src/lib/service-area.ts</code> — returns <code>ok: true</code> when <code>max_service_distance_miles = 0</code></td>
+  <td>Leave the setting at 0 (seed default) and omit <code>GOOGLE_MAPS_API_KEY</code> from CI to bypass distance checks in booking tests.</td>
+</tr>
+<tr>
+  <td><strong>Stripe webhook verification</strong></td>
+  <td><code>src/app/api/webhooks/stripe/route.ts</code> — requires valid HMAC signature</td>
+  <td>Skip full webhook tests in Phase 1–2. In Phase 2, assert that "Pay" button links to Stripe URL pattern; in Phase 3 add a synthetic webhook test using <code>stripe.webhooks.generateTestHeaderString()</code> at the API layer.</td>
+</tr>
+<tr>
+  <td><strong>Test seed users are domain-specific</strong></td>
+  <td><code>scripts/seed.ts</code> — emails use <code>doorsteplaundrylc.com</code></td>
+  <td>Add a parallel set of <code>playwright+…@doorsteplaundrylc.com</code> users to the test seed, or reuse the existing ones — the seed is idempotent (upsert).</td>
+</tr>
+<tr>
+  <td><strong>Test DB support is already built</strong></td>
+  <td><code>scripts/seed.ts</code> reads <code>DATABASE_URL_TEST</code> with <code>--mode test</code></td>
+  <td>The CI job just needs to set <code>DATABASE_URL_TEST</code> pointing at the ephemeral Postgres service, then run <code>npm run db:seed:test</code>.</td>
+</tr>
+<tr>
+  <td><strong>Order sequence seeding</strong></td>
+  <td>Test orders use sequence numbers 9001–9008 to avoid collisions</td>
+  <td>E2E tests should use these fixed order numbers to assert against known state.</td>
+</tr>
+</tbody>
+</table>
+
+<!-- ── PHASES ──────────────────────────────────────────────────── -->
+<h2 id="phases" class="section-anchor">2. Phase Overview</h2>
+
+<div class="phase-grid">
+  <div class="phase-card phase-1">
+    <span class="tag">Phase 1 — Ship First</span>
+    <h3>Auth &amp; RBAC</h3>
+    <ul>
+      <li>Sign in / sign out</li>
+      <li>Role-based redirects</li>
+      <li>Protected page guards</li>
+      <li>Login error states</li>
+      <li>Legal pages load</li>
+      <li>RBAC: customer → /admin blocked</li>
+    </ul>
+  </div>
+  <div class="phase-card phase-2">
+    <span class="tag">Phase 2</span>
+    <h3>Booking &amp; Dashboard</h3>
+    <ul>
+      <li>3-step booking form</li>
+      <li>Past-due block</li>
+      <li>Customer order list</li>
+      <li>Order detail page</li>
+      <li>Edit &amp; delete orders</li>
+      <li>Promo code redemption</li>
+      <li>Stripe "Pay" button</li>
+      <li>Account settings</li>
+    </ul>
+  </div>
+  <div class="phase-card phase-3">
+    <span class="tag">Phase 3</span>
+    <h3>Staff &amp; Admin</h3>
+    <ul>
+      <li>Wash dashboard load statuses</li>
+      <li>Weight entry</li>
+      <li>Driver order pickup</li>
+      <li>Admin user/pricing CRUD</li>
+      <li>Booking availability config</li>
+      <li>Analytics charts load</li>
+      <li>Promo code management</li>
+    </ul>
+  </div>
+</div>
+
+<div class="callout callout-info">
+  <strong>CI fail policy</strong>
+  Add the Playwright job to the workflow as <code>continue-on-error: true</code> initially. This lets you merge PRs while tests are being stabilized. Flip it to blocking once Phase 1 has a green run on three consecutive PRs.
+</div>
+
+<!-- ── STEP 1 ──────────────────────────────────────────────────── -->
+<h2 id="step1" class="section-anchor">3. Step 1 — Install &amp; Configure Playwright</h2>
+
+<h3>Installation</h3>
+<p>Run this once, locally. Commit the generated files.</p>
+<pre><code>npm install --save-dev @playwright/test
+npx playwright install --with-deps chromium
+<span class="comment"># Only chromium in CI — saves ~400 MB of browser downloads</span></code></pre>
+
+<h3>Playwright Config — <code>/Users/rluna/alumbra/laundry/playwright.config.ts</code></h3>
+<pre><code><span class="kw">import</span> { defineConfig, devices } <span class="kw">from</span> <span class="str">'@playwright/test'</span>;
+
+<span class="kw">export default</span> defineConfig({
+  testDir: <span class="str">'./e2e'</span>,
+  <span class="comment">// Reasonable CI timeout; local dev can be shorter</span>
+  timeout: 30_000,
+  expect: { timeout: 8_000 },
+
+  <span class="comment">// Run tests in parallel — each worker gets its own browser context</span>
+  fullyParallel: <span class="kw">true</span>,
+  workers: process.env.CI ? 2 : undefined,
+
+  <span class="comment">// Retry once in CI to absorb flakiness from Next.js server cold starts</span>
+  retries: process.env.CI ? 1 : 0,
+
+  reporter: process.env.CI
+    ? [<span class="str">'list'</span>, [<span class="str">'html'</span>, { open: <span class="str">'never'</span> }], [<span class="str">'junit'</span>, { outputFile: <span class="str">'playwright-results.xml'</span> }]]
+    : <span class="str">'list'</span>,
+
+  use: {
+    baseURL: process.env.PLAYWRIGHT_BASE_URL ?? <span class="str">'http://localhost:3000'</span>,
+    trace: <span class="str">'on-first-retry'</span>,
+    screenshot: <span class="str">'only-on-failure'</span>,
+    video: <span class="str">'retain-on-failure'</span>,
+  },
+
+  projects: [
+    <span class="comment">// Setup project runs once to seed the DB before any tests</span>
+    { name: <span class="str">'setup'</span>, testMatch: <span class="str">/.*\.setup\.ts/</span> },
+
+    {
+      name: <span class="str">'chromium'</span>,
+      use: { ...devices[<span class="str">'Desktop Chrome'</span>] },
+      dependencies: [<span class="str">'setup'</span>],
+    },
+  ],
+
+  <span class="comment">// Start the Next.js dev server in CI only when not already running</span>
+  webServer: {
+    command: <span class="str">'npm run start'</span>,
+    url: <span class="str">'http://localhost:3000'</span>,
+    reuseExistingServer: !process.env.CI,
+    timeout: 120_000,
+    env: {
+      DATABASE_URL: process.env.DATABASE_URL_TEST ?? process.env.DATABASE_URL ?? <span class="str">''</span>,
+    },
+  },
+});</code></pre>
+
+<div class="callout callout-warn">
+  <strong>Why <code>npm run start</code> not <code>npm run dev</code></strong>
+  The <code>start</code> command runs the production build. In CI, build the app first with <code>npm run build</code>, then Playwright launches <code>next start</code>. This is ~3× faster for cold starts than <code>next dev</code> and matches production behavior. Add a <code>build</code> step before the Playwright job.
+</div>
+
+<!-- ── STEP 2 ──────────────────────────────────────────────────── -->
+<h2 id="step2" class="section-anchor">4. Step 2 — Directory Structure</h2>
+
+<div class="file-tree">
+<span class="dir">laundry/</span><br>
+├── <span class="dir new">e2e/</span><br>
+│   ├── <span class="dir new">fixtures/</span><br>
+│   │   ├── <span class="new">auth.setup.ts</span>      <span class="comment"># seeds DB + saves auth state per role</span><br>
+│   │   ├── <span class="new">base.ts</span>            <span class="comment"># custom test() with role-aware page fixture</span><br>
+│   │   └── <span class="new">db.ts</span>              <span class="comment"># direct Prisma helpers for test state setup</span><br>
+│   ├── <span class="dir new">auth/</span><br>
+│   │   ├── <span class="new">login.spec.ts</span><br>
+│   │   ├── <span class="new">signup.spec.ts</span><br>
+│   │   └── <span class="new">role-redirects.spec.ts</span><br>
+│   ├── <span class="dir new">booking/</span><br>
+│   │   ├── <span class="new">booking-flow.spec.ts</span>  <span class="comment"># 3-step form</span><br>
+│   │   └── <span class="new">past-due-block.spec.ts</span><br>
+│   ├── <span class="dir new">dashboard/</span><br>
+│   │   ├── <span class="new">order-list.spec.ts</span><br>
+│   │   ├── <span class="new">order-detail.spec.ts</span><br>
+│   │   ├── <span class="new">promo-codes.spec.ts</span><br>
+│   │   └── <span class="new">edit-delete-orders.spec.ts</span><br>
+│   ├── <span class="dir new">payment/</span><br>
+│   │   └── <span class="new">pay-button.spec.ts</span>    <span class="comment"># Stripe redirect only, no webhook</span><br>
+│   ├── <span class="dir new">account/</span><br>
+│   │   └── <span class="new">settings.spec.ts</span><br>
+│   ├── <span class="dir new">staff/</span><br>
+│   │   ├── <span class="new">wash-dashboard.spec.ts</span><br>
+│   │   └── <span class="new">driver-dashboard.spec.ts</span><br>
+│   ├── <span class="dir new">admin/</span><br>
+│   │   └── <span class="new">admin-panel.spec.ts</span><br>
+│   ├── <span class="dir new">legal/</span><br>
+│   │   └── <span class="new">legal-pages.spec.ts</span><br>
+│   ├── <span class="dir new">edge-cases/</span><br>
+│   │   └── <span class="new">rbac.spec.ts</span><br>
+│   └── <span class="new">.auth/</span>               <span class="comment"># gitignored — saved auth state JSONs</span><br>
+├── <span class="file">playwright.config.ts</span>   <span class="comment"># new</span><br>
+├── <span class="file">scripts/seed.ts</span>        <span class="comment"># existing — used by auth.setup.ts</span><br>
+└── <span class="file">.github/workflows/ci.yml</span>  <span class="comment"># modified</span>
+</div>
+
+<p>Add <code>e2e/.auth/</code> and <code>playwright-report/</code> to <code>.gitignore</code>.</p>
+
+<!-- ── STEP 3 ──────────────────────────────────────────────────── -->
+<h2 id="step3" class="section-anchor">5. Step 3 — Test Database &amp; Environment Strategy</h2>
+
+<h3>Local development</h3>
+<p>Create a second Supabase project (free tier) or a local Postgres database and set <code>DATABASE_URL_TEST</code> in <code>.env</code>. The seed script already routes to it when <code>--mode test</code> is passed.</p>
+
+<h3>CI environment</h3>
+<p>The GitHub Actions job spins up a <code>services.postgres</code> container. This is completely separate from the main <code>lint-and-test</code> job, which has no database at all.</p>
+
+<table>
+<thead><tr><th>Env var in CI</th><th>Value</th><th>Purpose</th></tr></thead>
+<tbody>
+<tr><td><code>DATABASE_URL</code></td><td>Postgres service connection string</td><td>Prisma migrate uses this</td></tr>
+<tr><td><code>DATABASE_URL_TEST</code></td><td>Same value as <code>DATABASE_URL</code> in the E2E job</td><td>Seed script targets this</td></tr>
+<tr><td><code>NEXTAUTH_SECRET</code></td><td>Any 32-char string (GitHub secret)</td><td>JWT signing</td></tr>
+<tr><td><code>NEXTAUTH_URL</code></td><td><code>http://localhost:3000</code></td><td>Redirect base URL</td></tr>
+<tr><td><code>STRIPE_SECRET_KEY</code></td><td>Real Stripe <em>test</em> key (GitHub secret)</td><td>Checkout session creation</td></tr>
+<tr><td><code>NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY</code></td><td>Matching test publishable key</td><td>Client-side Stripe.js</td></tr>
+<tr><td><code>STRIPE_WEBHOOK_SECRET</code></td><td>Any string or skip</td><td>Not needed until Phase 3 webhook tests</td></tr>
+<tr><td><code>RESEND_API_KEY</code></td><td><strong>Omit</strong> — see mocking section</td><td>Tests bypass signup; notify calls are no-ops</td></tr>
+<tr><td><code>TWILIO_ACCOUNT_SID</code></td><td><strong>Omit</strong></td><td>SMS silently skipped when key absent</td></tr>
+<tr><td><code>GOOGLE_MAPS_API_KEY</code></td><td><strong>Omit</strong></td><td>Service area check returns ok=true when missing+max=0</td></tr>
+<tr><td><code>NEXT_PUBLIC_GOOGLE_MAPS_API_KEY</code></td><td><strong>Omit</strong></td><td>Address autocomplete degrades gracefully</td></tr>
+</tbody>
+</table>
+
+<div class="callout callout-success">
+  <strong>Why omitting Resend/Twilio/Google Maps is safe</strong>
+  <ul>
+    <li><code>sendOrderNotification</code> in <code>src/lib/notify.ts</code> logs a warning and returns <code>{ email: false }</code> when <code>RESEND_API_KEY</code> is absent — it does not throw.</li>
+    <li>The Twilio path is guarded by <code>canSendSms</code> which requires both SID and token to be set.</li>
+    <li>Address service area is bypassed when <code>max_service_distance_miles = 0</code> (the seeded default).</li>
+    <li>The signup route <em>does</em> throw 503 when <code>RESEND_API_KEY</code> is absent — but signup tests use pre-seeded users, not the signup form.</li>
+  </ul>
+</div>
+
+<!-- ── STEP 4 ──────────────────────────────────────────────────── -->
+<h2 id="step4" class="section-anchor">6. Step 4 — Fixtures &amp; Auth Helpers</h2>
+
+<h3><code>e2e/fixtures/auth.setup.ts</code> — runs once before all tests</h3>
+<pre><code><span class="kw">import</span> { test <span class="kw">as</span> setup, expect } <span class="kw">from</span> <span class="str">'@playwright/test'</span>;
+<span class="kw">import</span> path <span class="kw">from</span> <span class="str">'path'</span>;
+<span class="kw">import</span> { execSync } <span class="kw">from</span> <span class="str">'child_process'</span>;
+
+<span class="comment">// Run migrations and seed the test DB once per run.</span>
+<span class="comment">// execSync is acceptable here because setup is single-process.</span>
+setup.beforeAll(<span class="kw">async</span> () => {
+  execSync(<span class="str">'npx prisma migrate deploy'</span>, { stdio: <span class="str">'inherit'</span>,
+    env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL_TEST } });
+  execSync(<span class="str">'npm run db:seed:test'</span>, { stdio: <span class="str">'inherit'</span> });
+});
+
+<span class="comment">// Save auth state for each role so tests can start pre-authenticated.</span>
+<span class="kw">const</span> USERS = [
+  { role: <span class="str">'customer'</span>, email: <span class="str">'ricky+1@doorsteplaundrylc.com'</span>,  file: <span class="str">'.auth/customer.json'</span> },
+  { role: <span class="str">'staff'</span>,    email: <span class="str">'ricky+staff1@doorsteplaundrylc.com'</span>, file: <span class="str">'.auth/staff.json'</span>    },
+  { role: <span class="str">'admin'</span>,    email: <span class="str">'ricky@doorsteplaundrylc.com'</span>,         file: <span class="str">'.auth/admin.json'</span>    },
+];
+<span class="kw">const</span> PASSWORD = <span class="str">'mypass1.'</span>;
+
+<span class="kw">for</span> (<span class="kw">const</span> u <span class="kw">of</span> USERS) {
+  setup(<span class="str">`authenticate as ${u.role}`</span>, <span class="kw">async</span> ({ page }) => {
+    <span class="kw">await</span> page.goto(<span class="str">'/login'</span>);
+    <span class="kw">await</span> page.fill(<span class="str">'#email'</span>, u.email);
+    <span class="kw">await</span> page.fill(<span class="str">'#password'</span>, PASSWORD);
+    <span class="kw">await</span> page.click(<span class="str">'button[type=submit]'</span>);
+    <span class="comment">// Wait for successful redirect away from /login</span>
+    <span class="kw">await</span> page.waitForURL((url) => !url.pathname.startsWith(<span class="str">'/login'</span>));
+    <span class="kw">await</span> page.context().storageState({ path: path.join(<span class="str">'e2e'</span>, u.file) });
+  });
+}</code></pre>
+
+<h3><code>e2e/fixtures/base.ts</code> — custom test object with role-scoped pages</h3>
+<pre><code><span class="kw">import</span> { test <span class="kw">as</span> base, expect } <span class="kw">from</span> <span class="str">'@playwright/test'</span>;
+<span class="kw">import</span> path <span class="kw">from</span> <span class="str">'path'</span>;
+
+<span class="kw">type</span> Fixtures = {
+  customerPage: <span class="kw">import</span>(<span class="str">'@playwright/test'</span>).Page;
+  staffPage:    <span class="kw">import</span>(<span class="str">'@playwright/test'</span>).Page;
+  adminPage:    <span class="kw">import</span>(<span class="str">'@playwright/test'</span>).Page;
+};
+
+<span class="kw">export const</span> test = base.extend&lt;Fixtures&gt;({
+  customerPage: <span class="kw">async</span> ({ browser }, use) => {
+    <span class="kw">const</span> ctx = <span class="kw">await</span> browser.newContext({
+      storageState: path.join(<span class="str">'e2e'</span>, <span class="str">'.auth/customer.json'</span>),
+    });
+    <span class="kw">await</span> use(<span class="kw">await</span> ctx.newPage());
+    <span class="kw">await</span> ctx.close();
+  },
+  staffPage: <span class="kw">async</span> ({ browser }, use) => {
+    <span class="kw">const</span> ctx = <span class="kw">await</span> browser.newContext({
+      storageState: path.join(<span class="str">'e2e'</span>, <span class="str">'.auth/staff.json'</span>),
+    });
+    <span class="kw">await</span> use(<span class="kw">await</span> ctx.newPage());
+    <span class="kw">await</span> ctx.close();
+  },
+  adminPage: <span class="kw">async</span> ({ browser }, use) => {
+    <span class="kw">const</span> ctx = <span class="kw">await</span> browser.newContext({
+      storageState: path.join(<span class="str">'e2e'</span>, <span class="str">'.auth/admin.json'</span>),
+    });
+    <span class="kw">await</span> use(<span class="kw">await</span> ctx.newPage());
+    <span class="kw">await</span> ctx.close();
+  },
+});
+
+<span class="kw">export</span> { expect };</code></pre>
+
+<h3><code>e2e/fixtures/db.ts</code> — direct Prisma access for test state manipulation</h3>
+<pre><code><span class="comment">/**
+ * Direct Prisma client for test setup helpers.
+ * Uses DATABASE_URL_TEST so it targets the isolated test database.
+ * Import from test files to create or modify data without going through the UI.
+ */</span>
+<span class="kw">import</span> { PrismaClient } <span class="kw">from</span> <span class="str">'@prisma/client'</span>;
+
+<span class="kw">const</span> prisma = <span class="kw">new</span> PrismaClient({
+  datasources: { db: { url: process.env.DATABASE_URL_TEST } },
+});
+
+<span class="kw">export</span> { prisma };
+
+<span class="comment">/** Get a seeded order by its fixed sequence suffix (9001–9008) */</span>
+<span class="kw">export async function</span> <span class="fn">getTestOrder</span>(seqNum: number) {
+  <span class="comment">// Test orders use orderNum(seqNum) = "ORDER-YYYYMMDD-seqNum"</span>
+  <span class="kw">return</span> prisma.order.findFirst({
+    where: { orderNumber: { endsWith: <span class="str">`-${String(seqNum).padStart(4, '0')}`</span> } },
+    include: { orderLoads: <span class="kw">true</span>, pickupAddress: <span class="kw">true</span>, deliveryAddress: <span class="kw">true</span> },
+  });
+}
+
+<span class="kw">export async function</span> <span class="fn">getPastDueOrder</span>(customerEmail: string) {
+  <span class="kw">const</span> user = <span class="kw">await</span> prisma.user.findUnique({ where: { email: customerEmail } });
+  <span class="kw">if</span> (!user) <span class="kw">throw new</span> Error(<span class="str">`User not found: ${customerEmail}`</span>);
+  <span class="comment">// Create a synthetic past-due order for blocking tests</span>
+  <span class="kw">return</span> prisma.order.create({
+    data: {
+      orderNumber: <span class="str">'TEST-PASTDUE-001'</span>,
+      customerId: user.id,
+      <span class="comment">/* ... minimal required fields ... */</span>
+    },
+  });
+}</code></pre>
+
+<!-- ── STEP 5 ──────────────────────────────────────────────────── -->
+<h2 id="step5" class="section-anchor">7. Step 5 — Phase 1 Tests: Auth &amp; RBAC</h2>
+
+<h3><code>e2e/auth/login.spec.ts</code></h3>
+<pre><code><span class="kw">import</span> { test, expect } <span class="kw">from</span> <span class="str">'../fixtures/base'</span>;
+
+test.describe(<span class="str">'Sign in'</span>, () => {
+  test(<span class="str">'valid credentials → redirected away from /login'</span>, <span class="kw">async</span> ({ page }) => {
+    <span class="kw">await</span> page.goto(<span class="str">'/login'</span>);
+    <span class="kw">await</span> page.fill(<span class="str">'#email'</span>, <span class="str">'ricky+1@doorsteplaundrylc.com'</span>);
+    <span class="kw">await</span> page.fill(<span class="str">'#password'</span>, <span class="str">'mypass1.'</span>);
+    <span class="kw">await</span> page.click(<span class="str">'button[type=submit]'</span>);
+    <span class="kw">await</span> expect(page).not.toHaveURL(<span class="str">/\/login/</span>);
+  });
+
+  test(<span class="str">'wrong password → error message visible'</span>, <span class="kw">async</span> ({ page }) => {
+    <span class="kw">await</span> page.goto(<span class="str">'/login'</span>);
+    <span class="kw">await</span> page.fill(<span class="str">'#email'</span>, <span class="str">'ricky+1@doorsteplaundrylc.com'</span>);
+    <span class="kw">await</span> page.fill(<span class="str">'#password'</span>, <span class="str">'wrongpassword'</span>);
+    <span class="kw">await</span> page.click(<span class="str">'button[type=submit]'</span>);
+    <span class="kw">await</span> expect(page.getByText(<span class="str">'Invalid email or password'</span>)).toBeVisible();
+  });
+
+  test(<span class="str">'already-logged-in customer visiting /login → redirected to /dashboard or /welcome'</span>,
+    <span class="kw">async</span> ({ customerPage }) => {
+    <span class="kw">await</span> customerPage.goto(<span class="str">'/login'</span>);
+    <span class="kw">await</span> expect(customerPage).not.toHaveURL(<span class="str">/\/login/</span>);
+  });
+});</code></pre>
+
+<h3><code>e2e/auth/role-redirects.spec.ts</code></h3>
+<pre><code>test.describe(<span class="str">'Role-based redirects'</span>, () => {
+  test(<span class="str">'customer login → /welcome or /dashboard'</span>, <span class="kw">async</span> ({ page }) => {
+    <span class="comment">// fresh unauthenticated page</span>
+    <span class="kw">await</span> page.goto(<span class="str">'/login'</span>);
+    <span class="kw">await</span> page.fill(<span class="str">'#email'</span>, <span class="str">'ricky+1@doorsteplaundrylc.com'</span>);
+    <span class="kw">await</span> page.fill(<span class="str">'#password'</span>, <span class="str">'mypass1.'</span>);
+    <span class="kw">await</span> page.click(<span class="str">'button[type=submit]'</span>);
+    <span class="kw">await</span> page.waitForURL(<span class="str">/\/(welcome|dashboard)/</span>);
+  });
+
+  test(<span class="str">'staff login → /wash'</span>, <span class="kw">async</span> ({ page }) => {
+    <span class="kw">await</span> page.goto(<span class="str">'/login'</span>);
+    <span class="kw">await</span> page.fill(<span class="str">'#email'</span>, <span class="str">'ricky+staff1@doorsteplaundrylc.com'</span>);
+    <span class="kw">await</span> page.fill(<span class="str">'#password'</span>, <span class="str">'mypass1.'</span>);
+    <span class="kw">await</span> page.click(<span class="str">'button[type=submit]'</span>);
+    <span class="kw">await</span> page.waitForURL(<span class="str">/\/wash/</span>);
+  });
+});</code></pre>
+
+<h3><code>e2e/edge-cases/rbac.spec.ts</code></h3>
+<pre><code>test.describe(<span class="str">'RBAC guards'</span>, () => {
+  test(<span class="str">'unauthenticated → /login redirect on protected pages'</span>, <span class="kw">async</span> ({ page }) => {
+    <span class="kw">for</span> (<span class="kw">const</span> route <span class="kw">of</span> [<span class="str">'/dashboard'</span>, <span class="str">'/book'</span>, <span class="str">'/admin'</span>, <span class="str">'/wash'</span>, <span class="str">'/driver'</span>]) {
+      <span class="kw">await</span> page.goto(route);
+      <span class="kw">await</span> expect(page).toHaveURL(<span class="str">/\/login/</span>);
+    }
+  });
+
+  test(<span class="str">'customer cannot access /admin'</span>, <span class="kw">async</span> ({ customerPage }) => {
+    <span class="kw">await</span> customerPage.goto(<span class="str">'/admin'</span>);
+    <span class="comment">// Expect either /login redirect or a 403/redirect to /dashboard</span>
+    <span class="kw">await</span> expect(customerPage).not.toHaveURL(<span class="str">/\/admin/</span>);
+  });
+
+  test(<span class="str">'customer cannot access /wash'</span>, <span class="kw">async</span> ({ customerPage }) => {
+    <span class="kw">await</span> customerPage.goto(<span class="str">'/wash'</span>);
+    <span class="kw">await</span> expect(customerPage).not.toHaveURL(<span class="str">/\/wash/</span>);
+  });
+
+  test(<span class="str">'customer cannot access /driver'</span>, <span class="kw">async</span> ({ customerPage }) => {
+    <span class="kw">await</span> customerPage.goto(<span class="str">'/driver'</span>);
+    <span class="kw">await</span> expect(customerPage).not.toHaveURL(<span class="str">/\/driver/</span>);
+  });
+
+  test(<span class="str">'staff cannot access /admin'</span>, <span class="kw">async</span> ({ staffPage }) => {
+    <span class="kw">await</span> staffPage.goto(<span class="str">'/admin'</span>);
+    <span class="kw">await</span> expect(staffPage).not.toHaveURL(<span class="str">/\/admin/</span>);
+  });
+
+  test(<span class="str">'customer order is 404 when accessed by another customer via direct URL'</span>,
+    <span class="kw">async</span> ({ staffPage, browser }) => {
+    <span class="comment">// Get an order belonging to customer 2 (c2)</span>
+    <span class="kw">const</span> order = <span class="kw">await</span> getTestOrder(9003); <span class="comment">// seeded to c2</span>
+    <span class="kw">const</span> ctx2 = <span class="kw">await</span> browser.newContext({
+      storageState: <span class="str">'e2e/.auth/customer.json'</span>, <span class="comment">// c1</span>
+    });
+    <span class="kw">const</span> p = <span class="kw">await</span> ctx2.newPage();
+    <span class="kw">await</span> p.goto(<span class="str">`/orders/${order.id}`</span>);
+    <span class="comment">// Should get 404 or redirect — NOT the order detail</span>
+    <span class="kw">await</span> expect(p.getByText(order.orderNumber)).not.toBeVisible();
+    <span class="kw">await</span> ctx2.close();
+  });
+});</code></pre>
+
+<h3><code>e2e/legal/legal-pages.spec.ts</code></h3>
+<pre><code>test.describe(<span class="str">'Legal pages'</span>, () => {
+  <span class="kw">for</span> (<span class="kw">const</span> path <span class="kw">of</span> [<span class="str">'/legal/terms'</span>, <span class="str">'/legal/privacy'</span>, <span class="str">'/legal/sms'</span>]) {
+    test(<span class="str">`${path} loads without errors`</span>, <span class="kw">async</span> ({ page }) => {
+      <span class="kw">const</span> errors: string[] = [];
+      page.on(<span class="str">'pageerror'</span>, (e) => errors.push(e.message));
+      <span class="kw">await</span> page.goto(path);
+      <span class="kw">await</span> expect(page).toHaveURL(path);
+      expect(errors).toHaveLength(0);
+    });
+  }
+});</code></pre>
+
+<!-- ── STEP 6 ──────────────────────────────────────────────────── -->
+<h2 id="step6" class="section-anchor">8. Step 6 — Phase 2 Tests: Booking &amp; Dashboard</h2>
+
+<div class="callout callout-info">
+  <strong>Strategy for booking form</strong>
+  The booking form uses an interactive date picker (buttons with day labels) and address verification. In CI without Google Maps, address autocomplete degrades to plain inputs. Use a known in-service-area address (Las Cruces, NM) and omit the Google Maps key so the service area check is skipped entirely.
+</div>
+
+<h3><code>e2e/booking/booking-flow.spec.ts</code> — annotated skeleton</h3>
+<pre><code>test(<span class="str">'complete 3-step booking flow'</span>, <span class="kw">async</span> ({ customerPage: page }) => {
+  <span class="kw">await</span> page.goto(<span class="str">'/book'</span>);
+
+  <span class="comment">// Step 1 — default is 1 load panel; verify it exists</span>
+  <span class="kw">await</span> expect(page.getByText(<span class="str">'Load 1'</span>)).toBeVisible();
+
+  <span class="comment">// Add a second load</span>
+  <span class="kw">await</span> page.getByRole(<span class="str">'button'</span>, { name: <span class="str">/Add load/i</span> }).click();
+  <span class="kw">await</span> expect(page.getByText(<span class="str">'Load 2'</span>)).toBeVisible();
+
+  <span class="comment">// Max load guard — click 8 more times to reach 10</span>
+  <span class="kw">for</span> (<span class="kw">let</span> i = 0; i &lt; 8; i++) {
+    <span class="kw">await</span> page.getByRole(<span class="str">'button'</span>, { name: <span class="str">/Add load/i</span> }).click();
+  }
+  <span class="kw">await</span> expect(page.getByRole(<span class="str">'button'</span>, { name: <span class="str">/Add load/i</span> })).toBeDisabled();
+
+  <span class="comment">// Pick the first available pickup date (enabled button in the date picker)</span>
+  <span class="kw">await</span> page.locator(<span class="str">'button:not(:disabled)'</span>, { hasText: <span class="str">/Mon|Tue|Wed|Thu|Fri|Sat|Sun/</span> })
+    .first().click();
+
+  <span class="kw">await</span> page.getByRole(<span class="str">'button'</span>, { name: <span class="str">/Continue/i</span> }).click();
+
+  <span class="comment">// Step 2 — address form (no Google Maps in CI)</span>
+  <span class="kw">await</span> page.getByPlaceholder(<span class="str">/Label/i</span>).fill(<span class="str">'Home'</span>);
+  <span class="kw">await</span> page.getByPlaceholder(<span class="str">/Street/i</span>).fill(<span class="str">'2001 E Lohman Ave'</span>);
+  <span class="kw">await</span> page.getByPlaceholder(<span class="str">/City/i</span>).fill(<span class="str">'Las Cruces'</span>);
+  <span class="kw">await</span> page.getByPlaceholder(<span class="str">/State/i</span>).fill(<span class="str">'NM'</span>);
+  <span class="kw">await</span> page.getByPlaceholder(<span class="str">/ZIP/i</span>).fill(<span class="str">'88001'</span>);
+
+  <span class="kw">await</span> page.getByRole(<span class="str">'button'</span>, { name: <span class="str">/Create order/i</span> }).click();
+
+  <span class="comment">// Should redirect to /orders/[id] on success</span>
+  <span class="kw">await</span> page.waitForURL(<span class="str">/\/orders\//</span>);
+  <span class="kw">await</span> expect(page.getByText(<span class="str">/scheduled/i</span>)).toBeVisible();
+});</code></pre>
+
+<h3>Key booking sub-tests to cover</h3>
+<ul>
+  <li>Booking with 0 loads is impossible (the "Add load" button always starts with 1 and remove stops at 1)</li>
+  <li>Max 10 loads — "Add load" button becomes disabled</li>
+  <li>Delivery date cannot be before pickup date — enforced by <code>earliestDeliveryDate</code> in the component; buttons are disabled</li>
+  <li>Past-due block — seed a delivered+unpaid order for customer 2, then attempt booking as customer 2 and assert the amber block message appears</li>
+</ul>
+
+<h3><code>e2e/dashboard/order-list.spec.ts</code></h3>
+<pre><code>test(<span class="str">'customer sees their orders on /dashboard'</span>, <span class="kw">async</span> ({ customerPage: page }) => {
+  <span class="kw">await</span> page.goto(<span class="str">'/dashboard'</span>);
+  <span class="comment">// Seed created 5 orders for c1 (seqs 9001, 9002, 9004, 9006, 9008)</span>
+  <span class="kw">await</span> expect(page.getByRole(<span class="str">'list'</span>).or(page.locator(<span class="str">'[data-testid="order-list"]'</span>)))
+    .toBeVisible();
+  <span class="comment">// At least one order badge visible</span>
+  <span class="kw">await</span> expect(page.getByText(<span class="str">/scheduled|picked_up|delivered/i</span>).first()).toBeVisible();
+});</code></pre>
+
+<div class="callout callout-warn">
+  <strong>test-id attributes</strong>
+  The dashboard components currently have no <code>data-testid</code> attributes. You will need to add a small number of these as you write tests. Target the most structurally stable elements first: order list container, order status badge, promo code input, pay button. Avoid relying on CSS class names from Tailwind — they are presentation details that change frequently.
+</div>
+
+<h3>Promo code test pattern</h3>
+<pre><code>test(<span class="str">'redeem valid promo code increases credited loads'</span>, <span class="kw">async</span> ({ adminPage, customerPage }) => {
+  <span class="comment">// Create a promo code via admin API directly (avoids UI dependency)</span>
+  <span class="kw">const</span> code = <span class="str">'TEST-E2E-PROMO'</span>;
+  <span class="kw">await</span> adminPage.request.post(<span class="str">'/api/admin/promo-codes'</span>, {
+    data: { code, numberOfLoads: 2 },
+  });
+
+  <span class="kw">await</span> customerPage.goto(<span class="str">'/dashboard'</span>);
+  <span class="kw">await</span> customerPage.getByPlaceholder(<span class="str">/promo|code/i</span>).fill(code);
+  <span class="kw">await</span> customerPage.getByRole(<span class="str">'button'</span>, { name: <span class="str">/redeem/i</span> }).click();
+  <span class="kw">await</span> expect(customerPage.getByText(<span class="str">/2 credited/i</span>)).toBeVisible();
+});</code></pre>
+
+<!-- ── STEP 7 ──────────────────────────────────────────────────── -->
+<h2 id="step7" class="section-anchor">9. Step 7 — Phase 3 Tests: Staff &amp; Admin</h2>
+
+<h3>Wash dashboard — load status advancement</h3>
+<pre><code>test(<span class="str">'staff advances load from ready_for_wash → in_progress'</span>, <span class="kw">async</span> ({ staffPage: page }) => {
+  <span class="comment">// Get seeded order 9003 (status: ready_for_wash)</span>
+  <span class="kw">const</span> order = <span class="kw">await</span> getTestOrder(9003);
+  <span class="kw">await</span> page.goto(<span class="str">'/wash'</span>);
+  <span class="kw">await</span> expect(page.getByText(order.orderNumber)).toBeVisible();
+  <span class="comment">// Find the load and click the status advance button</span>
+  <span class="kw">await</span> page.getByText(order.orderLoads[0].loadCode).locator(<span class="str">'..'</span>)
+    .getByRole(<span class="str">'button'</span>, { name: <span class="str">/washing/i</span> }).click();
+  <span class="kw">await</span> expect(page.getByText(<span class="str">'washing'</span>).first()).toBeVisible();
+});</code></pre>
+
+<h3>Admin panel — pricing update</h3>
+<pre><code>test(<span class="str">'admin updates price per pound'</span>, <span class="kw">async</span> ({ adminPage: page }) => {
+  <span class="kw">await</span> page.goto(<span class="str">'/admin'</span>);
+  <span class="kw">const</span> priceInput = page.getByLabel(<span class="str">/price per pound/i</span>);
+  <span class="kw">await</span> priceInput.fill(<span class="str">'175'</span>);  <span class="comment">// $1.75</span>
+  <span class="kw">await</span> page.getByRole(<span class="str">'button'</span>, { name: <span class="str">/save|update/i</span> }).click();
+  <span class="kw">await</span> expect(page.getByText(<span class="str">/saved|updated/i</span>)).toBeVisible();
+  <span class="comment">// Reset to avoid polluting other tests</span>
+  <span class="kw">await</span> priceInput.fill(<span class="str">'150'</span>);
+  <span class="kw">await</span> page.getByRole(<span class="str">'button'</span>, { name: <span class="str">/save|update/i</span> }).click();
+});</code></pre>
+
+<!-- ── STEP 8 ──────────────────────────────────────────────────── -->
+<h2 id="step8" class="section-anchor">10. Step 8 — GitHub Actions CI Job</h2>
+
+<p>Add this job to <code>.github/workflows/ci.yml</code> alongside the existing <code>lint-and-test</code> job. It only runs on PRs targeting <code>dev</code>. The existing job is unchanged.</p>
+
+<pre><code><span class="comment"># .github/workflows/ci.yml — full file (existing job + new E2E job)</span>
+<span class="key">name</span>: <span class="str">CI</span>
+
+<span class="key">on</span>:
+  <span class="key">push</span>:
+    <span class="key">branches</span>: [main, dev]
+  <span class="key">pull_request</span>:
+    <span class="key">branches</span>: [main]
+
+<span class="key">jobs</span>:
+  <span class="comment"># ── Existing job (unchanged) ────────────────────────────────────────</span>
+  <span class="key">lint-and-test</span>:
+    <span class="key">runs-on</span>: ubuntu-latest
+    <span class="key">steps</span>:
+      - <span class="key">uses</span>: <span class="str">actions/checkout@v4</span>
+      - <span class="key">name</span>: Setup Node
+        <span class="key">uses</span>: <span class="str">actions/setup-node@v4</span>
+        <span class="key">with</span>:
+          <span class="key">node-version</span>: <span class="str">"20"</span>
+          <span class="key">cache</span>: <span class="str">"npm"</span>
+      - <span class="key">name</span>: Install dependencies
+        <span class="key">run</span>: npm ci
+      - <span class="key">name</span>: Lint
+        <span class="key">run</span>: npm run lint
+      - <span class="key">name</span>: Generate Prisma client
+        <span class="key">run</span>: npx prisma generate
+      - <span class="key">name</span>: Test
+        <span class="key">run</span>: npm run test
+
+  <span class="comment"># ── New E2E job ─────────────────────────────────────────────────────</span>
+  <span class="key">e2e</span>:
+    <span class="comment"># Only run on PRs to dev, not on pushes to main (protect production gate)</span>
+    <span class="key">if</span>: <span class="str">github.event_name == 'pull_request' && github.base_ref == 'dev'</span>
+    <span class="key">runs-on</span>: ubuntu-latest
+    <span class="comment"># Non-blocking during Phase 1 ramp-up — flip to false once stable</span>
+    <span class="key">continue-on-error</span>: true
+
+    <span class="key">services</span>:
+      <span class="key">postgres</span>:
+        <span class="key">image</span>: <span class="str">postgres:16</span>
+        <span class="key">env</span>:
+          <span class="key">POSTGRES_USER</span>: <span class="str">pw_test</span>
+          <span class="key">POSTGRES_PASSWORD</span>: <span class="str">pw_test</span>
+          <span class="key">POSTGRES_DB</span>: <span class="str">laundry_test</span>
+        <span class="key">ports</span>:
+          - <span class="str">5432:5432</span>
+        <span class="key">options</span>: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    <span class="key">env</span>:
+      <span class="comment"># Both vars point at the same CI Postgres (the seed script reads DATABASE_URL_TEST)</span>
+      <span class="key">DATABASE_URL</span>: <span class="str">postgresql://pw_test:pw_test@localhost:5432/laundry_test</span>
+      <span class="key">DATABASE_URL_TEST</span>: <span class="str">postgresql://pw_test:pw_test@localhost:5432/laundry_test</span>
+      <span class="key">NEXTAUTH_SECRET</span>: <span class="str">${{ secrets.NEXTAUTH_SECRET }}</span>
+      <span class="key">NEXTAUTH_URL</span>: <span class="str">http://localhost:3000</span>
+      <span class="key">STRIPE_SECRET_KEY</span>: <span class="str">${{ secrets.STRIPE_SECRET_KEY_TEST }}</span>
+      <span class="key">NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY</span>: <span class="str">${{ secrets.STRIPE_PK_TEST }}</span>
+      <span class="comment"># Intentionally omitted: RESEND_API_KEY, TWILIO_*, GOOGLE_MAPS_API_KEY</span>
+      <span class="comment"># These services degrade gracefully when keys are absent (see code analysis)</span>
+      <span class="key">PLAYWRIGHT_BASE_URL</span>: <span class="str">http://localhost:3000</span>
+      <span class="key">CI</span>: <span class="str">true</span>
+
+    <span class="key">steps</span>:
+      - <span class="key">uses</span>: <span class="str">actions/checkout@v4</span>
+
+      - <span class="key">name</span>: Setup Node
+        <span class="key">uses</span>: <span class="str">actions/setup-node@v4</span>
+        <span class="key">with</span>:
+          <span class="key">node-version</span>: <span class="str">"20"</span>
+          <span class="key">cache</span>: <span class="str">"npm"</span>
+
+      - <span class="key">name</span>: Install dependencies
+        <span class="key">run</span>: npm ci
+
+      - <span class="key">name</span>: Install Playwright browsers (Chromium only)
+        <span class="key">run</span>: npx playwright install --with-deps chromium
+
+      - <span class="key">name</span>: Generate Prisma client
+        <span class="key">run</span>: npx prisma generate
+
+      - <span class="key">name</span>: Run database migrations
+        <span class="key">run</span>: npx prisma migrate deploy
+
+      - <span class="key">name</span>: Build Next.js app
+        <span class="key">run</span>: npm run build
+
+      - <span class="key">name</span>: Run Playwright E2E tests
+        <span class="key">run</span>: npx playwright test
+
+      - <span class="key">name</span>: Upload Playwright report
+        <span class="key">if</span>: always()
+        <span class="key">uses</span>: <span class="str">actions/upload-artifact@v4</span>
+        <span class="key">with</span>:
+          <span class="key">name</span>: playwright-report
+          <span class="key">path</span>: playwright-report/
+          <span class="key">retention-days</span>: <span class="str">7</span>
+
+      - <span class="key">name</span>: Upload JUnit results
+        <span class="key">if</span>: always()
+        <span class="key">uses</span>: <span class="str">actions/upload-artifact@v4</span>
+        <span class="key">with</span>:
+          <span class="key">name</span>: playwright-junit
+          <span class="key">path</span>: playwright-results.xml</code></pre>
+
+<h3>GitHub Secrets to add</h3>
+<table>
+<thead><tr><th>Secret name</th><th>Value</th></tr></thead>
+<tbody>
+<tr><td><code>NEXTAUTH_SECRET</code></td><td>Any 32-char random string (<code>openssl rand -base64 32</code>)</td></tr>
+<tr><td><code>STRIPE_SECRET_KEY_TEST</code></td><td>Your existing <code>sk_test_…</code> key</td></tr>
+<tr><td><code>STRIPE_PK_TEST</code></td><td>Your existing <code>pk_test_…</code> key</td></tr>
+</tbody>
+</table>
+
+<div class="callout callout-warn">
+  <strong>Build time in CI</strong>
+  Running <code>npm run build</code> before Playwright adds ~2–3 minutes to the job. The tradeoff is that you test against production-optimized code (correct behavior) rather than dev-mode code (hot reload artifacts can affect timing). An alternative is to run <code>next dev</code> instead of <code>next start</code> — faster startup, but slightly different behavior. Recommended: use <code>next start</code> from the start; it keeps CI results credible.
+</div>
+
+<!-- ── STEP 9 ──────────────────────────────────────────────────── -->
+<h2 id="step9" class="section-anchor">11. Step 9 — Notification &amp; Stripe Mocking Strategy</h2>
+
+<table>
+<thead><tr><th>Concern</th><th>Approach</th><th>Phase</th></tr></thead>
+<tbody>
+<tr>
+  <td>Email (Resend)</td>
+  <td>Omit <code>RESEND_API_KEY</code> from CI env. <code>sendOrderNotification</code> warns and returns <code>{ email: false }</code> — no throw, no test failure. For signup-flow tests that <em>require</em> email: create users directly via Prisma in <code>db.ts</code> helpers (bypassing the signup API entirely).</td>
+  <td><span class="badge badge-green">All phases</span></td>
+</tr>
+<tr>
+  <td>SMS (Twilio)</td>
+  <td>Omit <code>TWILIO_ACCOUNT_SID</code>. The <code>canSendSms</code> guard short-circuits cleanly.</td>
+  <td><span class="badge badge-green">All phases</span></td>
+</tr>
+<tr>
+  <td>Stripe checkout redirect</td>
+  <td>With real test keys, assert that clicking "Pay" navigates to a URL matching <code>/checkout.stripe.com/</code>. Do not complete payment in CI — just assert the redirect. Use <code>page.waitForURL</code> with a pattern.</td>
+  <td><span class="badge badge-amber">Phase 2</span></td>
+</tr>
+<tr>
+  <td>Stripe webhook</td>
+  <td>Do not test the full webhook in Phase 1–2. In Phase 3, call <code>POST /api/webhooks/stripe</code> directly using <code>page.request.post()</code> with a synthetically signed body using <code>stripe.webhooks.generateTestHeaderString()</code>. This requires <code>STRIPE_WEBHOOK_SECRET</code> in the CI env.</td>
+  <td><span class="badge badge-blue">Phase 3</span></td>
+</tr>
+<tr>
+  <td>PDF generation (receipts, load tags)</td>
+  <td>Assert that the download button is present and that clicking it results in a response with <code>Content-Type: application/pdf</code>. Use Playwright's <code>page.waitForEvent('download')</code>.</td>
+  <td><span class="badge badge-amber">Phase 2</span></td>
+</tr>
+<tr>
+  <td>GPS location sharing</td>
+  <td>Mock the Geolocation API in Playwright's browser context: <code>context.setGeolocation({ latitude: 32.3, longitude: -106.7 })</code>. Grant permissions with <code>context.grantPermissions(['geolocation'])</code>.</td>
+  <td><span class="badge badge-blue">Phase 3</span></td>
+</tr>
+<tr>
+  <td>Google Maps autocomplete</td>
+  <td>Omit <code>NEXT_PUBLIC_GOOGLE_MAPS_API_KEY</code>. The <code>AddressAutocomplete</code> component is conditionally rendered only when the key exists. Tests fill the plain street/city/state/zip inputs directly.</td>
+  <td><span class="badge badge-green">All phases</span></td>
+</tr>
+</tbody>
+</table>
+
+<!-- ── STEP 10 ──────────────────────────────────────────────────── -->
+<h2 id="step10" class="section-anchor">12. Step 10 — Rollout Checklist</h2>
+
+<h3>Phase 1 deliverable checklist</h3>
+<ul>
+  <li>[ ] <code>playwright.config.ts</code> committed, <code>@playwright/test</code> in devDependencies</li>
+  <li>[ ] <code>e2e/.auth/</code> added to <code>.gitignore</code></li>
+  <li>[ ] <code>e2e/fixtures/auth.setup.ts</code> and <code>base.ts</code> committed</li>
+  <li>[ ] <code>e2e/fixtures/db.ts</code> with Prisma helpers committed</li>
+  <li>[ ] <code>e2e/auth/login.spec.ts</code> — passing locally and in CI</li>
+  <li>[ ] <code>e2e/auth/role-redirects.spec.ts</code> — passing</li>
+  <li>[ ] <code>e2e/edge-cases/rbac.spec.ts</code> — passing</li>
+  <li>[ ] <code>e2e/legal/legal-pages.spec.ts</code> — passing</li>
+  <li>[ ] <code>.github/workflows/ci.yml</code> updated with E2E job (<code>continue-on-error: true</code>)</li>
+  <li>[ ] GitHub Secrets: <code>NEXTAUTH_SECRET</code>, <code>STRIPE_SECRET_KEY_TEST</code>, <code>STRIPE_PK_TEST</code> added</li>
+  <li>[ ] CI green on a test PR to dev</li>
+</ul>
+
+<h3>Phase 2 deliverable checklist</h3>
+<ul>
+  <li>[ ] Minimal <code>data-testid</code> attributes added to: order list container, order card status badge, promo code input, pay button, booking step indicators</li>
+  <li>[ ] <code>e2e/booking/booking-flow.spec.ts</code> — 3-step flow passing</li>
+  <li>[ ] <code>e2e/booking/past-due-block.spec.ts</code> — block message visible</li>
+  <li>[ ] <code>e2e/dashboard/order-list.spec.ts</code>, <code>order-detail.spec.ts</code></li>
+  <li>[ ] <code>e2e/dashboard/promo-codes.spec.ts</code></li>
+  <li>[ ] <code>e2e/dashboard/edit-delete-orders.spec.ts</code></li>
+  <li>[ ] <code>e2e/payment/pay-button.spec.ts</code> — Stripe redirect assert</li>
+  <li>[ ] <code>e2e/account/settings.spec.ts</code> — profile update, address CRUD</li>
+  <li>[ ] Flip <code>continue-on-error</code> to <code>false</code> after Phase 2 tests are stable</li>
+</ul>
+
+<h3>Phase 3 deliverable checklist</h3>
+<ul>
+  <li>[ ] <code>e2e/staff/wash-dashboard.spec.ts</code> — load status advancement</li>
+  <li>[ ] <code>e2e/staff/driver-dashboard.spec.ts</code> — pickup route, geolocation mock</li>
+  <li>[ ] <code>e2e/admin/admin-panel.spec.ts</code> — pricing, promo codes, user list</li>
+  <li>[ ] Stripe webhook synthetic test added to <code>e2e/payment/</code></li>
+  <li>[ ] <code>STRIPE_WEBHOOK_SECRET</code> added to GitHub Secrets</li>
+</ul>
+
+<h3>Timing estimates</h3>
+<table>
+<thead><tr><th>Phase</th><th>Spec files</th><th>Estimated CI duration</th><th>Estimated build effort</th></tr></thead>
+<tbody>
+<tr><td>Phase 1</td><td>4 files, ~15 tests</td><td>~3–4 min</td><td>2–3 days</td></tr>
+<tr><td>Phase 2</td><td>7 files, ~35 tests</td><td>~5–7 min</td><td>4–5 days</td></tr>
+<tr><td>Phase 3</td><td>3 files, ~20 tests</td><td>~8–10 min total</td><td>3–4 days</td></tr>
+</tbody>
+</table>
+
+<hr>
+
+<h2>Additions Needed in the Application Code</h2>
+<p>These are small, targeted additions to the existing Next.js code required to make E2E tests reliable. They are not functionality changes.</p>
+<ol>
+  <li><strong>Add <code>data-testid</code> attributes</strong> to: order list container (<code>dashboard-order-list.tsx</code>), order status badge (<code>order-list-item.tsx</code>), promo code input (<code>promo-code-section.tsx</code>), pay button (<code>pay-button.tsx</code>), booking step heading or step indicator.</li>
+  <li><strong>Expose the <code>NEXTAUTH_URL</code> redirect behavior</strong>: When a logged-in user visits <code>/login</code>, the <code>LoginForm</code> component currently does not check session state — the server-side redirect happens at the page level. Verify this redirect lands at <code>/welcome</code> or <code>/dashboard</code> (the <code>callbackUrl</code> defaults to <code>/welcome</code>).</li>
+  <li><strong>Add a <code>.env.test</code> or <code>.env.e2e</code> file</strong> for local E2E development with <code>DATABASE_URL_TEST</code> pointing at a local test DB. Never commit actual credentials — add the file to <code>.gitignore</code>. Document the required vars in a <code>README</code> section.</li>
+</ol>
+
+</div>
+</body>
+</html>
