@@ -243,7 +243,19 @@ export default async function OrderDetailPage({
             )}
             <div>
               <dt className="text-fern-500">Total</dt>
-              <dd className="text-fern-900 mt-0.5 font-medium">${(Math.round(displayTotalCents) / 100).toFixed(2)}</dd>
+              <dd className="text-fern-900 mt-0.5 font-medium flex items-center gap-2">
+                ${(Math.round(displayTotalCents ?? 0) / 100).toFixed(2)}
+                {order.paymentStatus === "paid" && (
+                  <span className="rounded-full bg-green-100 text-green-700 text-xs font-medium px-2 py-0.5">
+                    Paid
+                  </span>
+                )}
+                {order.paymentStatus === "credited" && (
+                  <span className="rounded-full bg-green-100 text-green-700 text-xs font-medium px-2 py-0.5">
+                    Credited
+                  </span>
+                )}
+              </dd>
             </div>
           </dl>
         </div>
