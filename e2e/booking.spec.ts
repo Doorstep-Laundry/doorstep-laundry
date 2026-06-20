@@ -26,7 +26,7 @@ test.describe("Book a pickup", () => {
       await page.getByRole("button", { name: /add load preferences/i }).click();
     }
     await expect(page.getByText(/load 10/i)).toBeVisible();
-    await expect(page.getByRole("button", { name: /add load preferences/i })).not.toBeVisible();
+    await expect(page.getByRole("button", { name: /add load preferences/i })).toBeDisabled();
   });
 
   test("Step 1 continue button is present", async ({ page }) => {
@@ -39,7 +39,8 @@ test.describe("Book a pickup", () => {
   test("Step 2 shows date and time fields after continuing from step 1", async ({ page }) => {
     await page.goto("/book");
     await page.getByRole("button", { name: /continue to address/i }).click();
-    await expect(page.getByText(/pickup/i)).toBeVisible({ timeout: 5_000 });
-    await expect(page.getByText(/delivery/i)).toBeVisible();
+    // "Pickup:" label is unique to the date/time step
+    await expect(page.getByText("Pickup:")).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText("Delivery:")).toBeVisible();
   });
 });

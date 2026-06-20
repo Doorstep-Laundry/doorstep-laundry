@@ -1,0 +1,22 @@
+--- /tmp/playwright-orig/lib/transform/esmLoader.js	2026-06-20 07:40:04
++++ /Users/rluna/alumbra/laundry/node_modules/playwright/lib/transform/esmLoader.js	2026-06-20 07:45:39
+@@ -5629,7 +5629,7 @@
+     const filename = import_url.default.fileURLToPath(context.parentURL);
+     const resolved = resolveHook(filename, specifier);
+     if (resolved !== void 0) {
+-      specifier = context.conditions?.includes("import") ? import_url.default.pathToFileURL(resolved).toString() : resolved;
++      specifier = context.conditions?.includes?.("import") ?? context.conditions?.has?.("import") ? import_url.default.pathToFileURL(resolved).toString() : resolved;
+     }
+   }
+   const result2 = nextResolve(specifier, context);
+--- /tmp/playwright-orig/lib/common/index.js	2026-06-20 07:40:04
++++ /Users/rluna/alumbra/laundry/node_modules/playwright/lib/common/index.js	2026-06-20 07:49:19
+@@ -869,7 +869,7 @@
+     const filename = import_url.default.fileURLToPath(context.parentURL);
+     const resolved = resolveHook(filename, specifier);
+     if (resolved !== void 0) {
+-      specifier = context.conditions?.includes("import") ? import_url.default.pathToFileURL(resolved).toString() : resolved;
++      specifier = context.conditions?.includes?.("import") ?? context.conditions?.has?.("import") ? import_url.default.pathToFileURL(resolved).toString() : resolved;
+     }
+   }
+   const result2 = nextResolve(specifier, context);
