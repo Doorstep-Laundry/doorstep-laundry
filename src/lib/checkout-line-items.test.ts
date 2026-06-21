@@ -13,6 +13,7 @@ const order = {
 };
 
 const PRICE = 150; // $1.50/lb
+const PREMIUM = 200; // $2.00/lb same-day surcharge
 
 describe("computeLoadCostCents", () => {
   it("returns weight × price when no bulky items", () => {
@@ -34,6 +35,12 @@ describe("computeLoadCostCents", () => {
     // 5 lbs × 150 = 750, plus 1 comforter = 3000 → 3750
     const cost = computeLoadCostCents({ weightLbs: 5, bulkyItems: { comforter: 1 } }, PRICE);
     expect(cost).toBe(3750);
+  });
+
+  it("includes premium in weight cost but not bulky", () => {
+    // weight: 10 lbs × (150 + 200) = 3500; bulky: comforter = round(150 × 20) = 3000 → 6500
+    const cost = computeLoadCostCents({ weightLbs: 10, bulkyItems: { comforter: 1 } }, PRICE, PREMIUM);
+    expect(cost).toBe(6500);
   });
 });
 
@@ -118,11 +125,12 @@ describe("buildStripeLineItemsWithCredits", () => {
     expect(creditFullItem).toBeDefined();
     expect(creditFullItem!.price_data.unit_amount).toBe(1500);
 
-    // Credited discount line: $0 placeholder
+    // Credited discount line cancels the base
     const creditDiscountItem = items.find((i) =>
       i.price_data.product_data.name.includes("Free load credit (Load 2)")
     );
     expect(creditDiscountItem).toBeDefined();
+    expect(creditDiscountItem!.quantity).toBe(-1);
   });
 
   it("includes tax item when taxCents > 0", () => {
@@ -142,5 +150,61 @@ describe("buildStripeLineItemsWithCredits", () => {
       i.price_data.product_data.name.includes("Wash and fold (Load 1)")
     );
     expect(creditFull).toBeDefined();
+  });
+
+  it("credit covers base rate only — premium surcharge still charged on credited load", () => {
+    // Load 1: 10 lbs, credited. Base: 10×150=1500 (free). Premium: 10×200=2000 (still charged).
+    const loads = [{ weightLbs: 10, loadNumber: 1 }];
+    const items = buildStripeLineItemsWithCredits(order, loads, PRICE, new Set([0]), 0, PREMIUM);
+
+    // Base wash line for credited load
+    const baseWash = items.find((i) => i.price_data.product_data.name.includes("Wash and fold (Load 1)"));
+    expect(baseWash).toBeDefined();
+    expect(baseWash!.price_data.unit_amount).toBe(1500); // base rate only
+
+    // Discount cancels exactly the base
+    const discount = items.find((i) => i.price_data.product_data.name.includes("Free load credit (Load 1)"));
+    expect(discount).toBeDefined();
+    expect(discount!.price_data.unit_amount).toBe(1500);
+    expect(discount!.quantity).toBe(-1);
+
+    // Premium surcharge line is present and NOT cancelled
+    const surcharge = items.find((i) => i.price_data.product_data.name.includes("Expedited service surcharge (Load 1)"));
+    expect(surcharge).toBeDefined();
+    expect(surcharge!.price_data.unit_amount).toBe(2000); // 10 lbs × $2.00/lb
+    expect(surcharge!.quantity).toBe(1); // positive — still charged
+
+    // No aggregate wash line (all loads credited)
+    const washAgg = items.find((i) => i.price_data.product_data.name === "Wash and fold (by weight)");
+    expect(washAgg).toBeUndefined();
+  });
+
+  it("non-credited loads use effective rate (base + premium) in aggregate line", () => {
+    // Load 1: 8 lbs non-credited. Load 2: 10 lbs credited.
+    const loads = [
+      { weightLbs: 8, loadNumber: 1 },
+      { weightLbs: 10, loadNumber: 2 },
+    ];
+    const items = buildStripeLineItemsWithCredits(order, loads, PRICE, new Set([1]), 0, PREMIUM);
+
+    // Non-credited wash aggregate: 8 lbs × (150+200) = 2800
+    const washItem = items.find((i) => i.price_data.product_data.name === "Wash and fold (by weight)");
+    expect(washItem).toBeDefined();
+    expect(washItem!.price_data.unit_amount).toBe(2800);
+
+    // Credited base: 10×150=1500 (shown + cancelled)
+    const creditBase = items.find((i) => i.price_data.product_data.name.includes("Wash and fold (Load 2)"));
+    expect(creditBase!.price_data.unit_amount).toBe(1500);
+
+    // Credited premium: 10×200=2000 (charged)
+    const creditPremium = items.find((i) => i.price_data.product_data.name.includes("Expedited service surcharge (Load 2)"));
+    expect(creditPremium!.price_data.unit_amount).toBe(2000);
+  });
+
+  it("no premium surcharge line when premium is 0", () => {
+    const loads = [{ weightLbs: 10, loadNumber: 1 }];
+    const items = buildStripeLineItemsWithCredits(order, loads, PRICE, new Set([0]), 0, 0);
+    const surcharge = items.find((i) => i.price_data.product_data.name.includes("Expedited service surcharge"));
+    expect(surcharge).toBeUndefined();
   });
 });

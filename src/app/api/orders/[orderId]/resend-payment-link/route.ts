@@ -61,11 +61,13 @@ export async function POST(
     order.customer,
     defaultPriceCents
   );
+  const premiumSurchargePerPoundCents = order.premiumSurchargePerPoundCents ?? 0;
   const { taxCents, totalCents } = computeOrderTotalWithTax(
     order.orderLoads,
     pricePerPoundCents,
     grtPercent,
-    nmgrtExempt
+    nmgrtExempt,
+    premiumSurchargePerPoundCents
   );
   if (totalCents <= 0) {
     return NextResponse.json(
@@ -93,7 +95,8 @@ export async function POST(
       deliveryDate: order.deliveryDate,
     },
     loads,
-    pricePerPoundCents
+    pricePerPoundCents,
+    premiumSurchargePerPoundCents
   );
   if (lineItems.length === 0) {
     return NextResponse.json(

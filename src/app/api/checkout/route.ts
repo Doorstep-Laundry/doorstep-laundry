@@ -61,15 +61,16 @@ export async function POST(request: Request) {
     order.customer,
     defaultPriceCents
   );
+  const premiumSurchargePerPoundCents = order.premiumSurchargePerPoundCents ?? 0;
 
   // -- Handle credited loads --
-  const { pickCreditedLoadIndices, computeLoadCostCents } = await import("@/lib/checkout-line-items");
+  const { pickCreditedLoadIndices, computeLoadCostCents, buildStripeLineItemsWithCredits } = await import("@/lib/checkout-line-items");
   const creditedCount = order.orderLoads.filter((l) => l.creditedLoad).length;
   const baseUrl = (process.env.NEXTAUTH_URL ?? "http://localhost:3000").replace(/\/$/, "");
 
   if (creditedCount > 0) {
     // Re-assign creditedLoad to the heaviest N loads (most expensive first)
-    const creditedIndices = pickCreditedLoadIndices(order.orderLoads, creditedCount, pricePerPoundCents);
+    const creditedIndices = pickCreditedLoadIndices(order.orderLoads, creditedCount, pricePerPoundCents, premiumSurchargePerPoundCents);
     await prisma.$transaction(
       order.orderLoads.map((l, i) =>
         prisma.orderLoad.update({
@@ -79,8 +80,11 @@ export async function POST(request: Request) {
       )
     );
 
-    if (creditedCount >= order.orderLoads.length) {
-      // All loads are credited — skip Stripe entirely
+    const nonCreditedLoads = order.orderLoads.filter((_, i) => !creditedIndices.has(i));
+    const creditedLoads = order.orderLoads.filter((_, i) => creditedIndices.has(i));
+
+    if (creditedCount >= order.orderLoads.length && premiumSurchargePerPoundCents === 0) {
+      // All loads credited with no premium — skip Stripe entirely
       await prisma.order.update({
         where: { id: orderId },
         data: { stripePaymentId: "CREDIT", totalCents: 0, paymentStatus: "credited" },
@@ -88,15 +92,23 @@ export async function POST(request: Request) {
       return NextResponse.json({ url: `${baseUrl}/orders/${orderId}?paid=1` });
     }
 
-    // Partial credits: charge only non-credited loads
-    const nonCreditedLoads = order.orderLoads.filter((_, i) => !creditedIndices.has(i));
-    const creditedLoads = order.orderLoads.filter((_, i) => creditedIndices.has(i));
-    const { totalCents, subtotalCents, taxCents } = computeOrderTotalWithTax(
+    // Partial credits OR all-credited with a premium: charge remaining amounts.
+    // Non-credited loads pay base + premium; credited loads pay premium only (credit covers base).
+    const { subtotalCents: nonCreditedSubtotal } = computeOrderTotalWithTax(
       nonCreditedLoads,
       pricePerPoundCents,
       grtPercent,
-      nmgrtExempt
+      nmgrtExempt,
+      premiumSurchargePerPoundCents
     );
+    const creditedPremiumSubtotal = creditedLoads.reduce(
+      (sum, l) => sum + Math.round((Number(l.weightLbs) || 0) * premiumSurchargePerPoundCents),
+      0
+    );
+    const payableSubtotal = nonCreditedSubtotal + creditedPremiumSubtotal;
+    const taxCents = nmgrtExempt ? 0 : Math.round(payableSubtotal * (grtPercent / 100));
+    const totalCents = payableSubtotal + taxCents;
+
     if (totalCents <= 0) {
       return NextResponse.json(
         { error: "Order total has not been set; contact support" },
@@ -105,46 +117,24 @@ export async function POST(request: Request) {
     }
     await prisma.order.update({ where: { id: orderId }, data: { totalCents } });
 
-    const { buildWashAndBulkyStripeLineItems } = await import("@/lib/checkout-line-items");
-    const lineItems = buildWashAndBulkyStripeLineItems(
-      { orderNumber: order.orderNumber, pickupDate: order.pickupDate, deliveryDate: order.deliveryDate },
-      nonCreditedLoads,
-      pricePerPoundCents
+    const orderCtx = { orderNumber: order.orderNumber, pickupDate: order.pickupDate, deliveryDate: order.deliveryDate };
+    const lineItems = buildStripeLineItemsWithCredits(
+      orderCtx,
+      order.orderLoads,
+      pricePerPoundCents,
+      creditedIndices,
+      taxCents,
+      premiumSurchargePerPoundCents
     );
 
-    // Show credited loads as $0 line items so the credit is visible on the Stripe receipt
-    const creditedCostCents = creditedLoads.reduce(
-      (sum, l) => sum + computeLoadCostCents(l, pricePerPoundCents),
-      0
-    );
-    const loadWord = creditedLoads.length === 1 ? "load" : "loads";
-    lineItems.push({
-      price_data: {
-        currency: "usd",
-        product_data: {
-          name: `Free load credit (${creditedLoads.length} ${loadWord})`,
-          description: `Credit applied — ${creditedLoads.length} ${loadWord} washed free (value: $${(creditedCostCents / 100).toFixed(2)})`,
-        },
-        unit_amount: 0,
-      },
-      quantity: 1,
-    });
-
-    if (!nmgrtExempt && taxCents > 0) {
-      lineItems.push({
-        price_data: {
-          currency: "usd",
-          product_data: {
-            name: `NMGRT (${grtPercent}%)`,
-            description: "New Mexico Gross Receipts Tax",
-          },
-          unit_amount: taxCents,
-        },
-        quantity: 1,
-      });
+    // For the all-credited-with-premium case, also show value of the credited base
+    if (creditedCount >= order.orderLoads.length) {
+      const creditedBaseCents = creditedLoads.reduce(
+        (sum, l) => sum + computeLoadCostCents(l, pricePerPoundCents, 0),
+        0
+      );
+      void creditedBaseCents; // displayed inline within buildStripeLineItemsWithCredits lines
     }
-
-    void subtotalCents; // used implicitly via totalCents above
 
     try {
       const stripe = getStripe();
@@ -168,7 +158,8 @@ export async function POST(request: Request) {
     order.orderLoads,
     pricePerPoundCents,
     grtPercent,
-    nmgrtExempt
+    nmgrtExempt,
+    premiumSurchargePerPoundCents
   );
   if (totalCents <= 0) {
     return NextResponse.json(
@@ -184,7 +175,8 @@ export async function POST(request: Request) {
   const lineItems = buildWashAndBulkyStripeLineItems(
     { orderNumber: order.orderNumber, pickupDate: order.pickupDate, deliveryDate: order.deliveryDate },
     order.orderLoads,
-    pricePerPoundCents
+    pricePerPoundCents,
+    premiumSurchargePerPoundCents
   );
   if (lineItems.length === 0) {
     return NextResponse.json(
