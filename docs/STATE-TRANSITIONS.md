@@ -115,6 +115,7 @@ These fire automatically whenever a load is updated via `PATCH /api/order-loads/
 
 | Current order status | Load condition | Order auto-transitions to |
 |---|---|---|
+| `picked_up` | All loads have a non-empty `location` | `ready_for_wash` (all loads cascade) |
 | `ready_for_wash` | Any load advances to `washing` or beyond | `in_progress` |
 | `in_progress` | All loads are `ready_for_wash` | `ready_for_wash` |
 | `in_progress` | All loads are `ready_for_delivery` | `ready_for_delivery` |

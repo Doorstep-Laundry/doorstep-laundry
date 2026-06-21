@@ -99,13 +99,25 @@ While an order is in `picked_up` status, staff can still add or remove loads if 
 
 ## Phase 3 — Driver Drops Off at the Facility
 
-The driver arrives at the facility and hands off the bags. A staff member manually transitions the order from `picked_up` to `ready_for_wash` via `POST /api/orders/{orderId}/status`.
+The driver arrives at the facility with the bags. On the driver page, a new **At facility — assign locations** section (blue border) appears for each `picked_up` order.
+
+### Assigning shelf locations
+
+For each load in the order, the driver (or a receiving staff member) types a shelf location — e.g. `Shelf A3`, `Rack B2` — into the per-load input and presses Enter or tabs away. The location is saved immediately via `PATCH /api/order-loads/{loadId}` with `{ location }`.
+
+A checkmark appears next to each saved load. The section header shows a running count: **2/3 placed**.
+
+### Automatic transition to ready_for_wash
+
+When the **last load** in an order receives a location, the system automatically:
 
 **State change:**
 - Order: `picked_up → ready_for_wash`
 - All loads: cascade to `ready_for_wash`
 
-At this point the bags physically exist at the facility and are ready to enter the wash pipeline.
+No manual status change is needed. The order disappears from the driver's facility section and becomes visible on the wash page.
+
+The location field on each `OrderLoad` record also helps wash staff physically locate a bag if needed — it remains visible on the wash dashboard throughout the wash pipeline.
 
 ---
 

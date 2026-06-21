@@ -18,7 +18,7 @@ type OrderRow = {
   deliveryDate?: string;
   pickupTimeSlot?: string | null;
   deliveryTimeSlot?: string | null;
-  orderLoads?: { id: string; loadNumber: number; status: string }[];
+  orderLoads?: { id: string; loadNumber: number; status: string; location?: string | null }[];
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -51,12 +51,18 @@ export function DriverDashboard() {
   const [adjustingLoadsOrderId, setAdjustingLoadsOrderId] = useState<string | null>(null);
   const [confirmLoadCounts, setConfirmLoadCounts] = useState<Record<string, number>>({});
   const [confirmingPickupId, setConfirmingPickupId] = useState<string | null>(null);
+  const [facilityOrders, setFacilityOrders] = useState<OrderRow[]>([]);
+  const [locationInputs, setLocationInputs] = useState<Record<string, string>>({});
+  const [savingLocationId, setSavingLocationId] = useState<string | null>(null);
+  const [loadLocationNames, setLoadLocationNames] = useState<string[]>([]);
 
   const fetchOrders = useCallback(async () => {
     const res = await fetch(`/api/driver/orders?window=${windowFilter}`);
     const data = await res.json().catch(() => ({}));
     const allPickups: OrderRow[] = Array.isArray(data.pickups) ? data.pickups : [];
+    const allFacility: OrderRow[] = Array.isArray(data.facility) ? data.facility : [];
     setPickups(allPickups);
+    setFacilityOrders(allFacility);
     setDeliveries(Array.isArray(data.deliveries) ? data.deliveries : []);
     // Seed confirm load counts for any out_for_pickup orders not yet in state
     setConfirmLoadCounts((prev) => {
@@ -64,6 +70,18 @@ export function DriverDashboard() {
       for (const o of allPickups) {
         if (o.status === "out_for_pickup" && !(o.id in next)) {
           next[o.id] = o.numberOfLoads;
+        }
+      }
+      return next;
+    });
+    // Seed location inputs from saved values (don't overwrite in-progress edits)
+    setLocationInputs((prev) => {
+      const next = { ...prev };
+      for (const o of allFacility) {
+        for (const load of o.orderLoads ?? []) {
+          if (!(load.id in next) && load.location) {
+            next[load.id] = load.location;
+          }
         }
       }
       return next;
@@ -80,6 +98,17 @@ export function DriverDashboard() {
       setRunPickupOrders([]);
       setRunDeliveryOrders([]);
     }
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/load-locations")
+      .then((res) => res.json())
+      .then((data) => {
+        setLoadLocationNames(
+          Array.isArray(data) ? data.map((loc: { name: string }) => loc.name) : []
+        );
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -229,6 +258,25 @@ export function DriverDashboard() {
       await fetchOrders();
     } finally {
       setConfirmingPickupId(null);
+    }
+  };
+
+  const handleSaveLocation = async (loadId: string, location: string) => {
+    setSavingLocationId(loadId);
+    try {
+      const res = await fetch(`/api/order-loads/${loadId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ location }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error ?? "Failed to save location");
+        return;
+      }
+      await fetchOrders();
+    } finally {
+      setSavingLocationId(null);
     }
   };
 
@@ -440,6 +488,81 @@ export function DriverDashboard() {
                       {confirmingPickupId === order.id ? "Confirming…" : "Confirm pickup"}
                     </button>
                   </div>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+
+      {/* Facility dropoff — assign a shelf location to each load */}
+      {facilityOrders.length > 0 && (
+        <div className="rounded-2xl border border-sky-200 bg-white shadow-sm overflow-hidden">
+          <h2 className="px-4 py-3 text-sm font-semibold text-sky-800 border-b border-sky-200 bg-sky-50">
+            At facility — assign locations
+          </h2>
+          <p className="px-4 py-2 text-xs text-fern-500 border-b border-fern-100">
+            Assign a shelf location to every load. The order moves to the wash queue automatically once all loads are placed.
+          </p>
+          <ul className="divide-y divide-fern-200">
+            {facilityOrders.map((order) => {
+              const loads = order.orderLoads ?? [];
+              const assignedCount = loads.filter((l) => l.location && l.location.trim() !== "").length;
+              const allAssigned = assignedCount === loads.length && loads.length > 0;
+              return (
+                <li key={order.id} className="px-4 py-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="font-mono text-sm font-medium text-fern-900">
+                        {order.orderNumber}
+                      </span>
+                      <span className="ml-2 text-xs text-fern-500">
+                        {order.customer.name ?? order.customer.email}
+                      </span>
+                    </div>
+                    <span className={`text-xs font-medium tabular-nums ${allAssigned ? "text-fern-600" : "text-sky-600"}`}>
+                      {assignedCount}/{loads.length} placed
+                    </span>
+                  </div>
+                  <ul className="space-y-2">
+                    {loads.map((load) => {
+                      const inputVal = locationInputs[load.id] ?? load.location ?? "";
+                      const isSaved = !!(load.location && load.location.trim() !== "");
+                      const isSaving = savingLocationId === load.id;
+                      return (
+                        <li key={load.id} className="flex items-center gap-3">
+                          <span className="text-xs font-medium text-fern-600 w-14 shrink-0">
+                            Load {load.loadNumber}
+                          </span>
+                          <select
+                            value={inputVal}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setLocationInputs((prev) => ({ ...prev, [load.id]: val }));
+                              if (val) handleSaveLocation(load.id, val);
+                            }}
+                            disabled={isSaving}
+                            className="flex-1 rounded-lg border border-fern-200 bg-white px-3 py-1.5 text-sm text-fern-900 focus:border-fern-500 focus:outline-none focus:ring-2 focus:ring-fern-500/20 disabled:opacity-50"
+                          >
+                            <option value="">— select location —</option>
+                            {loadLocationNames.map((name) => (
+                              <option key={name} value={name}>{name}</option>
+                            ))}
+                            {inputVal && !loadLocationNames.includes(inputVal) && (
+                              <option value={inputVal}>{inputVal}</option>
+                            )}
+                          </select>
+                          <span className="w-5 shrink-0 text-center">
+                            {isSaving ? (
+                              <span className="text-fern-400 text-xs">…</span>
+                            ) : isSaved ? (
+                              <span className="text-fern-500 text-sm">✓</span>
+                            ) : null}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
                 </li>
               );
             })}

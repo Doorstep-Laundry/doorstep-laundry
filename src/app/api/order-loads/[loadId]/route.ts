@@ -106,6 +106,13 @@ export async function PATCH(
       where: { id: orderId },
       data: orderData,
     });
+    // All loads assigned a location at facility → cascade all to ready_for_wash
+    if (newOrderStatus === "ready_for_wash" && currentOrderStatus === "picked_up") {
+      await prisma.orderLoad.updateMany({
+        where: { orderId },
+        data: { status: "ready_for_wash" },
+      });
+    }
     const note = getNoteForOrderStatusChange(newOrderStatus);
     await prisma.orderStatusHistory.create({
       data: {

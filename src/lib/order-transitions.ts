@@ -56,6 +56,13 @@ export function getOrderStatusFromLoads(
     return null;
   }
 
+  if (currentOrderStatus === "picked_up") {
+    const allHaveLocation = loads.every(
+      (l) => typeof l.location === "string" && l.location.trim() !== ""
+    );
+    if (allHaveLocation) return "ready_for_wash";
+  }
+
   if (currentOrderStatus === "in_progress") {
     const allReadyForDelivery = loads.every((l) => l.status === "ready_for_delivery");
     if (allReadyForDelivery) return "ready_for_delivery";
