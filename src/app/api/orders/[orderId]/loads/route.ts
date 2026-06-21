@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions, isStaff } from "@/lib/auth";
+import { getDriverSession } from "@/lib/mobile-auth";
 import { prisma } from "@/lib/db";
 import type { LoadStatus } from "@prisma/client";
 import {
@@ -18,13 +17,9 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ orderId: string }> }
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
+  const driver = await getDriverSession(request);
+  if (!driver) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  const role = (session.user as { role: string }).role;
-  if (!isStaff(role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const { orderId } = await params;
@@ -118,20 +113,16 @@ export async function POST(
  * Allowed only when order is scheduled or picked_up and the last load is still pre-wash.
  */
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ orderId: string }> }
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
+  const driver = await getDriverSession(request);
+  if (!driver) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  const role = (session.user as { role: string }).role;
-  if (!isStaff(role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const { orderId } = await params;
-  const userId = (session.user as { id: string }).id;
+  const userId = driver.id;
 
   const order = await prisma.order.findUnique({
     where: { id: orderId },

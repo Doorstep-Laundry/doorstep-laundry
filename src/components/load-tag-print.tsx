@@ -160,3 +160,36 @@ export function LoadTagPrintButton({
     </button>
   );
 }
+
+type AndroidLinkProps = {
+  orderNumber: string;
+  loadNumber: number;
+  numberOfLoads: number;
+  className?: string;
+  buttonLabel?: string;
+};
+
+/**
+ * Renders an anchor that fires the doorstep://print deep link on Android tablets.
+ * The native app handles the intent, prints the label, and returns focus to Chrome.
+ */
+export function LoadTagAndroidPrintLink({
+  orderNumber,
+  loadNumber,
+  numberOfLoads,
+  className,
+  buttonLabel = "Print tag (Android)",
+}: AndroidLinkProps) {
+  const params = new URLSearchParams({
+    orderNumber,
+    loadNumber: String(loadNumber),
+    numberOfLoads: String(numberOfLoads),
+  });
+  const href = `doorstep://print?${params.toString()}`;
+
+  return (
+    <a href={href} className={className}>
+      {buttonLabel}
+    </a>
+  );
+}
