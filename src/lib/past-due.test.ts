@@ -80,6 +80,12 @@ describe("getPastDueOrders", () => {
     expect(result).toEqual([]);
   });
 
+  it("excludes zero-balance orders", async () => {
+    await getPastDueOrders("customer-1");
+    const where = mockFindMany.mock.calls[0][0].where;
+    expect(where.totalCents).toEqual({ gt: 0 });
+  });
+
   it("uses grace period of 0 days (no grace)", async () => {
     mockGracePeriod.mockResolvedValue(0);
     await getPastDueOrders("customer-1");

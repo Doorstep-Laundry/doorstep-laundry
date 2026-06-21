@@ -30,6 +30,7 @@ export async function getPastDueOrders(customerId: string): Promise<PastDueOrder
       customerId,
       stripePaymentId: null,
       paymentWaived: false,
+      totalCents: { gt: 0 },
       status: { in: PAST_DUE_STATUSES },
       deliveryDate: { lt: cutoff },
     },
