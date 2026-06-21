@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions, isStaff } from "@/lib/auth";
+import { getDriverSession } from "@/lib/mobile-auth";
 import { prisma } from "@/lib/db";
 import { sendOrderNotification } from "@/lib/notify";
 
@@ -11,13 +10,9 @@ import { sendOrderNotification } from "@/lib/notify";
  * Body: { orders: [{ orderId: string, numberOfLoads: number }] }
  */
 export async function POST(request: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
+  const driver = await getDriverSession(request);
+  if (!driver) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  const role = (session.user as { role: string }).role;
-  if (!isStaff(role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   let body: { orders?: { orderId: string; numberOfLoads: number }[] };
@@ -31,7 +26,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "orders array required" }, { status: 400 });
   }
 
-  const userId = (session.user as { id: string }).id;
+  const userId = driver.id;
 
   for (const item of body.orders) {
     if (!item.orderId || typeof item.numberOfLoads !== "number" || item.numberOfLoads < 1) {

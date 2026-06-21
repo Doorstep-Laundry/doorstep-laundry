@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions, isStaff } from "@/lib/auth";
+import { getDriverSession } from "@/lib/mobile-auth";
 import { prisma } from "@/lib/db";
 import { sendOrderNotification } from "@/lib/notify";
 
@@ -18,17 +17,13 @@ const runOrderInclude = {
  * GET: Current driver's active run (latest run with pickups or at least one delivery not delivered), or null.
  * Returns pickupOrders and deliveryOrders so the UI can show both (picked_up orders are not in the driver orders list).
  */
-export async function GET() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
+export async function GET(request: Request) {
+  const driver = await getDriverSession(request);
+  if (!driver) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const role = (session.user as { role: string }).role;
-  if (!isStaff(role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
 
-  const driverId = (session.user as { id: string }).id;
+  const driverId = driver.id;
   const runs = await prisma.driverRun.findMany({
     where: { driverId },
     orderBy: { startedAt: "desc" },
@@ -79,13 +74,9 @@ export async function GET() {
  * Body: { orderIds: string[], pickupOrderIds?: string[] } — pickupOrderIds optional (pickups already transitioned by start-pickup).
  */
 export async function POST(request: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
+  const driver = await getDriverSession(request);
+  if (!driver) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  const role = (session.user as { role: string }).role;
-  if (!isStaff(role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   let body: { orderIds?: string[]; pickupOrderIds?: string[] };
@@ -101,7 +92,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "orderIds array required" }, { status: 400 });
   }
 
-  const driverId = (session.user as { id: string }).id;
+  const driverId = driver.id;
 
   const orders = await prisma.order.findMany({
     where: { id: { in: orderIds } },

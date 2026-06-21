@@ -60,6 +60,11 @@ export async function proxy(request: NextRequest) {
     driverPaths.some((p) => pathname === p || pathname.startsWith(p + "/")) ||
     driverApiPattern.test(pathname);
 
+  // Mobile app uses Bearer tokens — let the route handler verify them via getDriverSession()
+  if (driverApiPattern.test(pathname) && request.headers.get("authorization")?.startsWith("Bearer ")) {
+    return NextResponse.next();
+  }
+
   if (isWashRoute || isStaffApi || isDriverRoute) {
     if (!token) {
       const login = new URL("/login", request.url);

@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions, isStaff } from "@/lib/auth";
+import { getDriverSession } from "@/lib/mobile-auth";
 import { prisma } from "@/lib/db";
 import { isInTimeWindow } from "@/lib/slots";
 
@@ -13,16 +12,12 @@ import { isInTimeWindow } from "@/lib/slots";
  * Each order includes scalars (e.g. numberOfLoads) plus orderLoads, customer, pickupAddress, deliveryAddress.
  */
 export async function GET(request: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
+  const driver = await getDriverSession(request);
+  if (!driver) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const role = (session.user as { role: string }).role;
-  if (!isStaff(role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
 
-  const userId = (session.user as { id: string }).id;
+  const userId = driver.id;
   const { searchParams } = new URL(request.url);
   const windowParam = searchParams.get("window") ?? "all";
   const windowNow = windowParam === "now";
