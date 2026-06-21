@@ -45,12 +45,15 @@ export function getEffectivePricing(
 /**
  * Compute subtotal (weight + bulky), tax (NMGRT unless exempt), and total.
  * Use when setting order.totalCents (weigh-in, checkout, resend payment).
+ * premiumSurchargePerPoundCents is added to the per-pound rate for weight-based charges only.
+ * Bulky items use the base pricePerPoundCents regardless of premium.
  */
 export function computeOrderTotalWithTax(
   loads: LoadWithWeight[],
   pricePerPoundCents: number,
   grtPercent: number,
-  nmgrtExempt = false
+  nmgrtExempt = false,
+  premiumSurchargePerPoundCents = 0
 ): {
   subtotalCents: number;
   taxCents: number;
@@ -58,11 +61,12 @@ export function computeOrderTotalWithTax(
   weightSubtotalCents: number;
   bulkySubtotalCents: number;
 } {
+  const effectivePricePerPoundCents = pricePerPoundCents + premiumSurchargePerPoundCents;
   const totalLbs = loads.reduce(
     (sum, l) => sum + (Number(l.weightLbs) || 0),
     0
   );
-  const weightSubtotalCents = Math.round(totalLbs * pricePerPoundCents);
+  const weightSubtotalCents = Math.round(totalLbs * effectivePricePerPoundCents);
   const bulkySubtotalCents = loads.reduce(
     (sum, l) =>
       sum +

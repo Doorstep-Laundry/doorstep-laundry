@@ -53,6 +53,12 @@ export default function TermsPage() {
           processed securely through our online payment platform.
         </p>
         <p>
+          <strong>Free load credits:</strong> When a free load credit is applied to an order, the
+          credit covers the base wash-and-fold rate for that load. Expedited service surcharges
+          (next-morning or same-day turnaround) are not covered by credits and remain due regardless
+          of how many credits are applied. Credits apply to the highest-cost loads first.
+        </p>
+        <p>
           <strong>Past-due accounts:</strong> If you have an outstanding unpaid balance, we will
           not accept new laundry pickups until the balance is settled. You will be notified of any
           past-due amount and directed to pay before booking again.
