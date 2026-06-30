@@ -266,3 +266,15 @@ model PromoCode {
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 }
+
+model PrintJob {
+  id            String   @id @default(cuid())
+  orderNumber   String   @map("order_number")
+  loadNumber    Int      @map("load_number")
+  numberOfLoads Int      @map("number_of_loads")
+  status        String   @default("pending") // pending | claimed | done | failed
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@index([status, createdAt])
+}

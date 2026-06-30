@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import QRCode from "qrcode";
 import { tagPrintLines, tagQrPayload } from "@/lib/load-tag";
 
@@ -168,6 +168,54 @@ type AndroidLinkProps = {
   className?: string;
   buttonLabel?: string;
 };
+
+type SendToZebraProps = {
+  orderNumber: string;
+  loadNumber: number;
+  numberOfLoads: number;
+  className?: string;
+  buttonLabel?: string;
+};
+
+/**
+ * Sends a print job to the Android relay device via the webapp print queue API.
+ * The Android device's PrintQueueService picks it up and prints via Bluetooth.
+ */
+export function LoadTagSendToZebraButton({
+  orderNumber,
+  loadNumber,
+  numberOfLoads,
+  className,
+  buttonLabel = "Send to Zebra",
+}: SendToZebraProps) {
+  const [state, setState] = useState<"idle" | "sending" | "sent" | "error">("idle");
+
+  const handleSend = useCallback(() => {
+    setState("sending");
+    void fetch("/api/print-queue", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orderNumber, loadNumber, numberOfLoads }),
+    })
+      .then((res) => {
+        setState(res.ok ? "sent" : "error");
+        if (res.ok) setTimeout(() => setState("idle"), 3_000);
+      })
+      .catch(() => setState("error"));
+  }, [orderNumber, loadNumber, numberOfLoads]);
+
+  const label =
+    state === "sending" ? "Sending…"
+    : state === "sent" ? "Sent ✓"
+    : state === "error" ? "Failed — retry?"
+    : buttonLabel;
+
+  return (
+    <button type="button" onClick={handleSend} disabled={state === "sending"} className={className}>
+      {label}
+    </button>
+  );
+}
 
 /**
  * Renders an anchor that fires the doorstep://print deep link on Android tablets.

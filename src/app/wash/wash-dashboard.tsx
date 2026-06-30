@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { getTimeSlotById } from "@/lib/slots";
 import { getEnabledLoadOptionLabels } from "@/lib/load-options";
-import { LoadTagPrintButton } from "@/components/load-tag-print";
+import { LoadTagPrintButton, LoadTagAndroidPrintLink, LoadTagSendToZebraButton } from "@/components/load-tag-print";
 import { WASH_VISIBLE_ORDER_STATUSES } from "@/lib/wash-orders";
 
 const POLL_INTERVAL_MS = 15_000;
@@ -329,12 +329,35 @@ export function WashDashboard({
                             </span>
                           )}
                         </span>
-                        <LoadTagPrintButton
-                          orderNumber={order.orderNumber}
-                          loadNumber={load.loadNumber}
-                          numberOfLoads={order.numberOfLoads}
-                          className="rounded border border-fern-200 bg-white px-2 py-1 text-xs font-medium text-fern-700 hover:bg-fern-50"
-                        />
+                        {(() => {
+                          const isAndroid = typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent);
+                          const btnClass = "rounded border border-fern-200 bg-white px-2 py-1 text-xs font-medium text-fern-700 hover:bg-fern-50";
+                          return isAndroid ? (
+                            <LoadTagAndroidPrintLink
+                              orderNumber={order.orderNumber}
+                              loadNumber={load.loadNumber}
+                              numberOfLoads={order.numberOfLoads}
+                              buttonLabel="Print tag"
+                              className={btnClass}
+                            />
+                          ) : (
+                            <span className="flex gap-1">
+                              <LoadTagSendToZebraButton
+                                orderNumber={order.orderNumber}
+                                loadNumber={load.loadNumber}
+                                numberOfLoads={order.numberOfLoads}
+                                buttonLabel="Zebra"
+                                className={btnClass}
+                              />
+                              <LoadTagPrintButton
+                                orderNumber={order.orderNumber}
+                                loadNumber={load.loadNumber}
+                                numberOfLoads={order.numberOfLoads}
+                                className={btnClass}
+                              />
+                            </span>
+                          );
+                        })()}
                       </div>
                     ) : (
                       <span className="text-fern-400">—</span>

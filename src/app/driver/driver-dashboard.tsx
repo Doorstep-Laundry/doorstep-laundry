@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { getTimeSlotById } from "@/lib/slots";
-import { LoadTagPrintButton } from "@/components/load-tag-print";
+import { LoadTagPrintButton, LoadTagAndroidPrintLink, LoadTagSendToZebraButton } from "@/components/load-tag-print";
 
 type AddressRow = { street: string; city: string; state: string; zip: string };
 
@@ -660,21 +660,41 @@ export function DriverDashboard() {
                         <ul className="flex flex-wrap gap-1.5 justify-end">
                           {[...(order.orderLoads ?? [])]
                             .sort((a, b) => a.loadNumber - b.loadNumber)
-                            .map((l) => (
-                              <li key={l.id}>
-                                <LoadTagPrintButton
-                                  orderNumber={order.orderNumber}
-                                  loadNumber={l.loadNumber}
-                                  numberOfLoads={
-                                    order.numberOfLoads ??
-                                    order.orderLoads?.length ??
-                                    1
-                                  }
-                                  buttonLabel={`Print L${l.loadNumber}`}
-                                  className="rounded border border-fern-200 bg-white px-2 py-1 text-xs font-medium text-fern-700 hover:bg-fern-50"
-                                />
-                              </li>
-                            ))}
+                            .map((l) => {
+                              const isAndroid = typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent);
+                              const nLoads = order.numberOfLoads ?? order.orderLoads?.length ?? 1;
+                              const btnClass = "rounded border border-fern-200 bg-white px-2 py-1 text-xs font-medium text-fern-700 hover:bg-fern-50";
+                              return (
+                                <li key={l.id}>
+                                  {isAndroid ? (
+                                    <LoadTagAndroidPrintLink
+                                      orderNumber={order.orderNumber}
+                                      loadNumber={l.loadNumber}
+                                      numberOfLoads={nLoads}
+                                      buttonLabel={`Print L${l.loadNumber}`}
+                                      className={btnClass}
+                                    />
+                                  ) : (
+                                    <span className="flex gap-1">
+                                      <LoadTagSendToZebraButton
+                                        orderNumber={order.orderNumber}
+                                        loadNumber={l.loadNumber}
+                                        numberOfLoads={nLoads}
+                                        buttonLabel={`Zebra L${l.loadNumber}`}
+                                        className={btnClass}
+                                      />
+                                      <LoadTagPrintButton
+                                        orderNumber={order.orderNumber}
+                                        loadNumber={l.loadNumber}
+                                        numberOfLoads={nLoads}
+                                        buttonLabel={`Print L${l.loadNumber}`}
+                                        className={btnClass}
+                                      />
+                                    </span>
+                                  )}
+                                </li>
+                              );
+                            })}
                         </ul>
                       )}
                     </div>
