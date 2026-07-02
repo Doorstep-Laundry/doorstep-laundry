@@ -106,6 +106,10 @@ export default function SmsPage() {
           </a>{" "}
           for full details.
         </p>
+        <p>
+          All the above categories exclude text messaging originator opt-in data and consent; this
+          information will not be shared with any third parties.
+        </p>
       </section>
     </article>
   );
