@@ -19,6 +19,7 @@ export default function LegalLayout({ children }: { children: React.ReactNode })
 
       <footer className="border-t border-fern-200/80 bg-white py-8">
         <div className="mx-auto max-w-3xl px-4 flex flex-wrap gap-x-6 gap-y-2 text-sm text-fern-500">
+          <Link href="/contact" className="hover:text-fern-700 transition-colors">Contact</Link>
           <Link href="/legal/terms" className="hover:text-fern-700 transition-colors">Terms of Service</Link>
           <Link href="/legal/privacy" className="hover:text-fern-700 transition-colors">Privacy Policy</Link>
           <Link href="/legal/sms" className="hover:text-fern-700 transition-colors">SMS Policy</Link>

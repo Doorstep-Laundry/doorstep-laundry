@@ -169,7 +169,10 @@ export default function TermsPage() {
           <a href="mailto:hello@doorsteplaundrylc.com" className="text-fern-600 underline hover:text-fern-800">
             hello@doorsteplaundrylc.com
           </a>{" "}
-          or through the contact form on our website.
+          or through our{" "}
+          <a href="/contact" className="text-fern-600 underline hover:text-fern-800">
+            contact page
+          </a>.
         </p>
       </section>
     </article>
