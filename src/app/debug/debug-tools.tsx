@@ -217,8 +217,9 @@ export function DebugTools() {
         </p>
         <div className="space-y-3 max-w-md">
           <div>
-            <label className="block text-sm font-medium text-fern-700 mb-1">Order number</label>
+            <label htmlFor="print-order-number" className="block text-sm font-medium text-fern-700 mb-1">Order number</label>
             <input
+              id="print-order-number"
               type="text"
               value={printOrderNumber}
               onChange={(e) => setPrintOrderNumber(e.target.value)}
@@ -228,8 +229,9 @@ export function DebugTools() {
           </div>
           <div className="flex gap-3">
             <div className="flex-1">
-              <label className="block text-sm font-medium text-fern-700 mb-1">Load #</label>
+              <label htmlFor="print-load-number" className="block text-sm font-medium text-fern-700 mb-1">Load #</label>
               <input
+                id="print-load-number"
                 type="number"
                 min={1}
                 value={printLoadNumber}
@@ -238,8 +240,9 @@ export function DebugTools() {
               />
             </div>
             <div className="flex-1">
-              <label className="block text-sm font-medium text-fern-700 mb-1">Total loads</label>
+              <label htmlFor="print-number-of-loads" className="block text-sm font-medium text-fern-700 mb-1">Total loads</label>
               <input
+                id="print-number-of-loads"
                 type="number"
                 min={1}
                 value={printNumberOfLoads}
