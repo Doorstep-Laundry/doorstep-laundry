@@ -1,4 +1,4 @@
-CREATE TABLE "app_release" (
+CREATE TABLE "AppRelease" (
     "id" TEXT NOT NULL,
     "version" TEXT NOT NULL,
     "version_code" INTEGER NOT NULL,
@@ -9,7 +9,7 @@ CREATE TABLE "app_release" (
     "uploaded_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "uploaded_by" TEXT NOT NULL,
 
-    CONSTRAINT "app_release_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "AppRelease_pkey" PRIMARY KEY ("id")
 );
 
-CREATE INDEX "app_release_uploaded_at_idx" ON "app_release"("uploaded_at");
+CREATE INDEX "AppRelease_uploaded_at_idx" ON "AppRelease"("uploaded_at");
