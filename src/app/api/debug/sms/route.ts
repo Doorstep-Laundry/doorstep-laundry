@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import Twilio from "twilio";
 
 /**
- * POST: Send a test SMS via Twilio. Admin only.
+ * POST: Send a test SMS via Quo. Admin only.
  * Body: { to: string, message: string }
  */
 export async function POST(request: Request) {
@@ -16,19 +15,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const sid = process.env.TWILIO_ACCOUNT_SID;
-  const token = process.env.TWILIO_AUTH_TOKEN;
-  const messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID;
-  const from = process.env.TWILIO_PHONE_NUMBER;
-  if (!sid || !token) {
+  const apiKey = process.env.QUO_API_KEY;
+  const from = process.env.QUO_PHONE_NUMBER;
+  const userId = process.env.QUO_USER_ID;
+  if (!apiKey || !from) {
     return NextResponse.json(
-      { error: "Twilio not configured (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)" },
-      { status: 503 }
-    );
-  }
-  if (!messagingServiceSid && !from) {
-    return NextResponse.json(
-      { error: "Twilio not configured: set TWILIO_MESSAGING_SERVICE_SID or TWILIO_PHONE_NUMBER" },
+      { error: "Quo not configured (QUO_API_KEY, QUO_PHONE_NUMBER)" },
       { status: 503 }
     );
   }
@@ -47,29 +39,29 @@ export async function POST(request: Request) {
   }
 
   try {
-    const client = Twilio(sid, token);
-    const result = await client.messages.create(
-      messagingServiceSid
-        ? { body: message, messagingServiceSid, to }
-        : { body: message, from: from!, to }
-    );
-    return NextResponse.json({ ok: true, sid: result.sid });
-  } catch (e: unknown) {
-    const err = e as { message?: string; code?: number; status?: number; moreInfo?: string };
-    console.error("Debug Twilio error:", e);
-    const status = err.status === 400 ? 400 : 500;
-    let message = err.message ?? "Twilio send failed";
-    if (err.code === 21660) {
-      message =
-        "The 'From' number in TWILIO_PHONE_NUMBER isn't on this Twilio account. Use a number from your Twilio console (Phone Numbers) or a verified caller ID.";
-      if (err.moreInfo) message += ` See: ${err.moreInfo}`;
-    } else if (err.code === 21266) {
-      message =
-        "Twilio doesn't allow sending to the same number as the 'From' number. Use a different 'To' number (on a trial account it must be verified in Twilio Console → Verified Caller IDs).";
-      if (err.moreInfo) message += ` See: ${err.moreInfo}`;
-    } else if (err.moreInfo) {
-      message += ` See: ${err.moreInfo}`;
+    const payload: Record<string, unknown> = { content: message, from, to: [to] };
+    if (userId) payload.userId = userId;
+
+    const res = await fetch("https://api.quo.com/v1/messages", {
+      method: "POST",
+      headers: {
+        Authorization: apiKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      console.error("Debug Quo error:", res.status, data);
+      return NextResponse.json(
+        { error: (data as { message?: string }).message ?? `Quo returned ${res.status}` },
+        { status: res.status >= 500 ? 502 : 400 }
+      );
     }
-    return NextResponse.json({ error: message }, { status });
+    return NextResponse.json({ ok: true, id: (data as { id?: string }).id });
+  } catch (e: unknown) {
+    console.error("Debug Quo error:", e);
+    return NextResponse.json({ error: (e as Error).message ?? "Quo send failed" }, { status: 500 });
   }
 }

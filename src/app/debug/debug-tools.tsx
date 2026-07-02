@@ -28,7 +28,7 @@ export function DebugTools() {
         body: JSON.stringify({ to: smsTo, message: smsMessage }),
       });
       const data = await res.json().catch(() => ({}));
-      if (res.ok) setSmsResult(`Sent (sid: ${data.sid ?? "—"})`);
+      if (res.ok) setSmsResult(`Sent (id: ${data.id ?? "—"})`);
       else setSmsResult(`Error: ${data.error ?? res.statusText}`);
     } catch (e) {
       setSmsResult(`Error: ${(e as Error).message}`);
@@ -90,9 +90,9 @@ export function DebugTools() {
   return (
     <div className="space-y-10">
       <section className="rounded-2xl border border-fern-200/80 bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-fern-900 mb-3">Twilio – Test SMS</h2>
+        <h2 className="text-lg font-semibold text-fern-900 mb-3">Quo – Test SMS</h2>
         <p className="text-sm text-fern-600 mb-4">
-          Send a test SMS using your configured Twilio number.
+          Send a test SMS using your configured Quo number.
         </p>
         <div className="space-y-3 max-w-md">
           <div>
