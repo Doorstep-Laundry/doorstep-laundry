@@ -22,18 +22,23 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
 
-  await prisma.appRelease.create({
-    data: { version, versionCode, fileName, blobUrl, size, notes: notes ?? null, uploadedBy: "ci" },
-  });
+  try {
+    await prisma.appRelease.create({
+      data: { version, versionCode, fileName, blobUrl, size, notes: notes ?? null, uploadedBy: "ci" },
+    });
 
-  // Enforce 2-release cap
-  const old = await prisma.appRelease.findMany({
-    orderBy: { uploadedAt: "desc" },
-    skip: 2,
-  });
-  for (const r of old) {
-    try { await del(r.blobUrl); } catch { /* blob may already be gone */ }
-    await prisma.appRelease.delete({ where: { id: r.id } });
+    // Enforce 2-release cap
+    const old = await prisma.appRelease.findMany({
+      orderBy: { uploadedAt: "desc" },
+      skip: 2,
+    });
+    for (const r of old) {
+      try { await del(r.blobUrl); } catch { /* blob may already be gone */ }
+      await prisma.appRelease.delete({ where: { id: r.id } });
+    }
+  } catch (e) {
+    console.error("[ci/releases]", e);
+    return NextResponse.json({ error: String(e) }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true });
