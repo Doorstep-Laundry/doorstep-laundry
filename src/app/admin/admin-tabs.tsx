@@ -16,12 +16,14 @@ import { DebugTools } from "@/app/debug/debug-tools";
 import { AdminAnalyticsCustomerTypeChart } from "./admin-analytics-customer-type-chart";
 import { AdminAnalyticsRevenueByMonthChart } from "./admin-analytics-revenue-by-month-chart";
 import { AdminAnalyticsLoadsByDayChart } from "./admin-analytics-loads-by-day-chart";
+import { AdminReleases } from "./admin-releases";
 
-type Tab = "operations" | "analytics" | "debug";
+type Tab = "operations" | "analytics" | "releases" | "debug";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "operations", label: "Operations" },
   { id: "analytics", label: "Analytics" },
+  { id: "releases", label: "Releases" },
   { id: "debug", label: "Debug" },
 ];
 
@@ -161,6 +163,18 @@ export function AdminTabs() {
           <AdminAnalyticsCustomerTypeChart />
           <AdminAnalyticsRevenueByMonthChart />
           <AdminAnalyticsLoadsByDayChart />
+        </div>
+      )}
+
+      {activeTab === "releases" && (
+        <div className="space-y-6">
+          <div>
+            <h2 className="text-lg font-semibold text-fern-900 mb-2">App releases</h2>
+            <p className="text-sm text-fern-600 mb-6">
+              Driver app APKs published from CI when a version bump is pushed to <code className="text-xs bg-fern-100 px-1 rounded">main</code>. Keeps the latest 2 releases. Only admins can delete.
+            </p>
+            <AdminReleases />
+          </div>
         </div>
       )}
 
