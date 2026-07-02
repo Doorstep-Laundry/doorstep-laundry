@@ -43,7 +43,7 @@ export function ForgotPasswordForm() {
     <div className="min-h-screen flex items-center justify-center bg-fern-50 px-4">
       <div className="w-full max-w-sm space-y-8 rounded-2xl border border-fern-200/80 bg-white p-8 shadow-lg shadow-fern-900/5">
         <div className="flex flex-col items-center text-center">
-          <Link href="/app" className="flex items-center justify-center gap-2 text-fern-900 mb-4">
+          <Link href="/" className="flex items-center justify-center gap-2 text-fern-900 mb-4">
             <Image src="/doorstep/DL_icon_RGB.svg" alt="" width={48} height={48} className="h-12 w-auto" unoptimized />
             <Image src="/doorstep/doorstep-logo-wordmark.svg" alt="Doorstep" width={120} height={32} className="h-8 w-auto" unoptimized />
           </Link>

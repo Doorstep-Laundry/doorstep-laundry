@@ -12,15 +12,19 @@ export function AccountForm({
   name,
   email,
   phone,
+  smsConsentAt,
 }: {
   name: string;
   email: string;
   phone: string;
+  smsConsentAt: Date | null;
 }) {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [form, setForm] = useState({ name, email, phone });
-  const [smsConsent, setSmsConsent] = useState(() => phone.trim() !== "");
+  const [smsConsent, setSmsConsent] = useState(smsConsentAt !== null);
+  const [consentSaving, setConsentSaving] = useState(false);
+  const [consentMessage, setConsentMessage] = useState("");
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -38,7 +42,7 @@ export function AccountForm({
       const res = await fetch("/api/account", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ name: form.name }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -51,6 +55,46 @@ export function AccountForm({
     } catch {
       setMessage("Something went wrong");
       setSaving(false);
+    }
+  }
+
+  async function handleConsentChange(checked: boolean) {
+    if (checked) {
+      if (form.phone.trim() === "") {
+        setConsentMessage("Enter a phone number first.");
+        return;
+      }
+      if (!isValidPhone(form.phone)) {
+        setConsentMessage("Enter a valid phone number first.");
+        return;
+      }
+    }
+    setSmsConsent(checked);
+    setConsentSaving(true);
+    setConsentMessage("");
+    try {
+      const res = await fetch("/api/account", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(
+          checked
+            ? { phone: form.phone, smsConsent: true }
+            : { phone: "", smsConsent: false }
+        ),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setConsentMessage(data.error ?? "Failed to save.");
+        setSmsConsent(!checked);
+      } else {
+        if (!checked) setForm((f) => ({ ...f, phone: "" }));
+        setConsentMessage(checked ? "SMS updates enabled." : "SMS updates disabled.");
+      }
+    } catch {
+      setConsentMessage("Something went wrong.");
+      setSmsConsent(!checked);
+    } finally {
+      setConsentSaving(false);
     }
   }
 
@@ -104,8 +148,9 @@ export function AccountForm({
             id="account-sms-consent"
             type="checkbox"
             checked={smsConsent}
-            onChange={(e) => setSmsConsent(e.target.checked)}
-            className="mt-1 h-4 w-4 shrink-0 rounded border-fern-300 text-fern-600 focus:ring-fern-500"
+            disabled={consentSaving}
+            onChange={(e) => handleConsentChange(e.target.checked)}
+            className="mt-1 h-4 w-4 shrink-0 rounded border-fern-300 text-fern-600 focus:ring-fern-500 disabled:opacity-50"
           />
           <label htmlFor="account-sms-consent" className="text-sm text-fern-700 leading-snug cursor-pointer">
             By checking this box and providing your phone number, you agree to receive order status
@@ -114,6 +159,9 @@ export function AccountForm({
             <a href="/legal/sms" className="underline hover:text-fern-900">SMS Policy</a>.
           </label>
         </div>
+        {consentMessage && (
+          <p className="mt-1.5 text-xs text-fern-600">{consentMessage}</p>
+        )}
       </div>
       <button
         type="submit"

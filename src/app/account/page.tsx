@@ -18,7 +18,7 @@ export default async function AccountPage() {
   const [user, addresses, ordersUsingAddresses] = await Promise.all([
     prisma.user.findUnique({
       where: { id: userId },
-      select: { name: true, email: true, phone: true, defaultLoadOptions: true },
+      select: { name: true, email: true, phone: true, smsConsentAt: true, defaultLoadOptions: true },
     }),
     prisma.address.findMany({
       where: { userId },
@@ -57,6 +57,7 @@ export default async function AccountPage() {
             name={user?.name ?? ""}
             email={user?.email ?? ""}
             phone={formatPhoneDisplay(user?.phone ?? "")}
+            smsConsentAt={user?.smsConsentAt ?? null}
           />
         </section>
         <section className="rounded-2xl border border-fern-200/80 bg-white p-6 shadow-sm">
