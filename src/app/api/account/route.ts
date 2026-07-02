@@ -29,12 +29,18 @@ export async function PATCH(request: Request) {
   const userId = (session.user as { id: string }).id;
   try {
     const body = await request.json();
-    const { name, phone, defaultLoadOptions } = body as {
+    const { name, phone, smsConsent, defaultLoadOptions } = body as {
       name?: string;
       phone?: string;
+      smsConsent?: boolean;
       defaultLoadOptions?: unknown;
     };
-    const data: { name?: string; phone?: string; defaultLoadOptions?: LoadOptionsInput | null } = {};
+    const data: {
+      name?: string;
+      phone?: string;
+      smsConsentAt?: Date | null;
+      defaultLoadOptions?: LoadOptionsInput | null;
+    } = {};
     if (typeof name === "string") data.name = name;
     if (phone !== undefined) {
       if (typeof phone !== "string") {
@@ -48,6 +54,12 @@ export async function PATCH(request: Request) {
       }
       const normalized = normalizePhone(phone);
       data.phone = normalized !== null ? formatPhoneForStorage(normalized) : "";
+      if (data.phone === "") data.smsConsentAt = null;
+    }
+    if (smsConsent === true && data.phone !== "" && data.phone !== undefined) {
+      data.smsConsentAt = new Date();
+    } else if (smsConsent === false) {
+      data.smsConsentAt = null;
     }
     if (defaultLoadOptions !== undefined) {
       data.defaultLoadOptions = parseDefaultLoadOptions(defaultLoadOptions);
@@ -60,6 +72,7 @@ export async function PATCH(request: Request) {
       data: {
         ...(data.name !== undefined && { name: data.name }),
         ...(data.phone !== undefined && { phone: data.phone }),
+        ...(data.smsConsentAt !== undefined && { smsConsentAt: data.smsConsentAt }),
         ...(data.defaultLoadOptions !== undefined && {
           defaultLoadOptions:
             data.defaultLoadOptions === null

@@ -41,7 +41,7 @@ export default async function PricingPage() {
         <header className="border-b border-fern-200/80 bg-white shadow-sm">
           <div className="mx-auto max-w-5xl px-4 py-4 flex justify-between items-center">
             <Link
-              href="/app"
+              href="/"
               className="flex items-center gap-2 text-fern-900 hover:opacity-90 transition-opacity"
               aria-label="Doorstep Laundry – Laundry service Las Cruces NM"
             >
@@ -67,7 +67,7 @@ export default async function PricingPage() {
             </Link>
             <nav className="flex items-center gap-4">
               <Link
-                href="/app/pricing"
+                href="/pricing"
                 className="text-sm font-medium text-fern-800"
                 aria-current="page"
               >
@@ -211,7 +211,7 @@ export default async function PricingPage() {
         </section>
 
         <p className="mt-10 text-center text-sm text-fern-500">
-          <Link href="/app" className="text-fern-700 font-medium hover:text-fern-900">
+          <Link href="/" className="text-fern-700 font-medium hover:text-fern-900">
             ← Back to home
           </Link>
         </p>
@@ -228,6 +228,12 @@ export default async function PricingPage() {
             unoptimized
           />
           <span>Doorstep Laundry Service · Las Cruces, NM</span>
+          <div className="flex flex-wrap justify-center gap-x-5 gap-y-1">
+            <Link href="/contact" className="hover:text-fern-700 transition-colors">Contact</Link>
+            <Link href="/legal/terms" className="hover:text-fern-700 transition-colors">Terms of Service</Link>
+            <Link href="/legal/privacy" className="hover:text-fern-700 transition-colors">Privacy Policy</Link>
+            <Link href="/legal/sms" className="hover:text-fern-700 transition-colors">SMS Policy</Link>
+          </div>
         </div>
       </footer>
     </div>

@@ -70,6 +70,7 @@ model User {
   customerType             CustomerType  @default(not_set) @map("customer_type")
   defaultLoadOptions        Json?     @map("default_load_options")
   emailVerifiedAt          DateTime? @map("email_verified_at")
+  smsConsentAt             DateTime? @map("sms_consent_at")
   creditedLoads            Int       @default(0) @map("credited_loads")
   createdAt                DateTime  @default(now()) @map("created_at")
   updatedAt                DateTime  @updatedAt @map("updated_at")
