@@ -18,6 +18,12 @@ export function DebugTools() {
   const [routeResult, setRouteResult] = useState<string | null>(null);
   const [routeLoading, setRouteLoading] = useState(false);
 
+  const [printOrderNumber, setPrintOrderNumber] = useState("ORDER-20260702-0001");
+  const [printLoadNumber, setPrintLoadNumber] = useState(1);
+  const [printNumberOfLoads, setPrintNumberOfLoads] = useState(1);
+  const [printResult, setPrintResult] = useState<string | null>(null);
+  const [printLoading, setPrintLoading] = useState(false);
+
   async function sendSms() {
     setSmsResult(null);
     setSmsLoading(true);
@@ -53,6 +59,33 @@ export function DebugTools() {
       setEmailResult(`Error: ${(e as Error).message}`);
     } finally {
       setEmailLoading(false);
+    }
+  }
+
+  async function sendPrint() {
+    setPrintResult(null);
+    setPrintLoading(true);
+    try {
+      const res = await fetch("/api/print-queue", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderNumber: printOrderNumber,
+          loadNumber: printLoadNumber,
+          numberOfLoads: printNumberOfLoads,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setPrintResult(`Sent (jobId: ${data.jobId ?? "—"})`);
+        setTimeout(() => setPrintResult(null), 3_000);
+      } else {
+        setPrintResult(`Error: ${data.error ?? res.statusText}`);
+      }
+    } catch (e) {
+      setPrintResult(`Error: ${(e as Error).message}`);
+    } finally {
+      setPrintLoading(false);
     }
   }
 
@@ -172,6 +205,59 @@ export function DebugTools() {
           </button>
           {emailResult && (
             <p className="text-sm text-fern-700 whitespace-pre-wrap">{emailResult}</p>
+          )}
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-fern-200/80 bg-white p-6 shadow-sm">
+        <h2 className="text-lg font-semibold text-fern-900 mb-3">Label printer – test print</h2>
+        <p className="text-sm text-fern-600 mb-4">
+          Queue a label print job exactly as the wash page does. Any Android device running
+          PrintQueueService with a paired printer will pick it up.
+        </p>
+        <div className="space-y-3 max-w-md">
+          <div>
+            <label className="block text-sm font-medium text-fern-700 mb-1">Order number</label>
+            <input
+              type="text"
+              value={printOrderNumber}
+              onChange={(e) => setPrintOrderNumber(e.target.value)}
+              placeholder="ORDER-20260702-0001"
+              className="w-full rounded-lg border border-fern-200 px-3 py-2 text-sm font-mono"
+            />
+          </div>
+          <div className="flex gap-3">
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-fern-700 mb-1">Load #</label>
+              <input
+                type="number"
+                min={1}
+                value={printLoadNumber}
+                onChange={(e) => setPrintLoadNumber(Number(e.target.value))}
+                className="w-full rounded-lg border border-fern-200 px-3 py-2 text-sm"
+              />
+            </div>
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-fern-700 mb-1">Total loads</label>
+              <input
+                type="number"
+                min={1}
+                value={printNumberOfLoads}
+                onChange={(e) => setPrintNumberOfLoads(Number(e.target.value))}
+                className="w-full rounded-lg border border-fern-200 px-3 py-2 text-sm"
+              />
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={sendPrint}
+            disabled={printLoading}
+            className="rounded-lg bg-fern-500 text-white px-4 py-2 text-sm font-medium hover:bg-fern-600 disabled:opacity-50"
+          >
+            {printLoading ? "Sending…" : "Send test print"}
+          </button>
+          {printResult && (
+            <p className="text-sm text-fern-700 whitespace-pre-wrap">{printResult}</p>
           )}
         </div>
       </section>
