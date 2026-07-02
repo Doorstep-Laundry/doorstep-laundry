@@ -279,3 +279,17 @@ model PrintJob {
 
   @@index([status, createdAt])
 }
+
+model AppRelease {
+  id          String   @id @default(cuid())
+  version     String   // semver "1.2.3"
+  versionCode Int      @map("version_code")
+  fileName    String   @map("file_name")
+  blobUrl     String   @map("blob_url")
+  size        Int      // bytes
+  notes       String?
+  uploadedAt  DateTime @default(now()) @map("uploaded_at")
+  uploadedBy  String   @map("uploaded_by") // "ci" or userId
+
+  @@index([uploadedAt])
+}
