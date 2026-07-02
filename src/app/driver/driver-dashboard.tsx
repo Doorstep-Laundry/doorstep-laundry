@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { getTimeSlotById } from "@/lib/slots";
-import { LoadTagPrintButton, LoadTagAndroidPrintLink, LoadTagSendToZebraButton } from "@/components/load-tag-print";
+import { LoadTagPrintButton, LoadTagAndroidPrintLink } from "@/components/load-tag-print";
 
 type AddressRow = { street: string; city: string; state: string; zip: string };
 
@@ -675,22 +675,13 @@ export function DriverDashboard() {
                                       className={btnClass}
                                     />
                                   ) : (
-                                    <span className="flex gap-1">
-                                      <LoadTagSendToZebraButton
-                                        orderNumber={order.orderNumber}
-                                        loadNumber={l.loadNumber}
-                                        numberOfLoads={nLoads}
-                                        buttonLabel={`Zebra L${l.loadNumber}`}
-                                        className={btnClass}
-                                      />
-                                      <LoadTagPrintButton
-                                        orderNumber={order.orderNumber}
-                                        loadNumber={l.loadNumber}
-                                        numberOfLoads={nLoads}
-                                        buttonLabel={`Print L${l.loadNumber}`}
-                                        className={btnClass}
-                                      />
-                                    </span>
+                                    <LoadTagPrintButton
+                                      orderNumber={order.orderNumber}
+                                      loadNumber={l.loadNumber}
+                                      numberOfLoads={nLoads}
+                                      buttonLabel={`Print L${l.loadNumber}`}
+                                      className={btnClass}
+                                    />
                                   )}
                                 </li>
                               );

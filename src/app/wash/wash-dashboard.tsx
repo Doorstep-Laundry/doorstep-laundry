@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { getTimeSlotById } from "@/lib/slots";
 import { getEnabledLoadOptionLabels } from "@/lib/load-options";
-import { LoadTagPrintButton, LoadTagAndroidPrintLink, LoadTagSendToZebraButton } from "@/components/load-tag-print";
+import { LoadTagPrintButton, LoadTagAndroidPrintLink } from "@/components/load-tag-print";
 import { WASH_VISIBLE_ORDER_STATUSES } from "@/lib/wash-orders";
 
 const POLL_INTERVAL_MS = 15_000;
@@ -341,21 +341,12 @@ export function WashDashboard({
                               className={btnClass}
                             />
                           ) : (
-                            <span className="flex gap-1">
-                              <LoadTagSendToZebraButton
-                                orderNumber={order.orderNumber}
-                                loadNumber={load.loadNumber}
-                                numberOfLoads={order.numberOfLoads}
-                                buttonLabel="Zebra"
-                                className={btnClass}
-                              />
-                              <LoadTagPrintButton
-                                orderNumber={order.orderNumber}
-                                loadNumber={load.loadNumber}
-                                numberOfLoads={order.numberOfLoads}
-                                className={btnClass}
-                              />
-                            </span>
+                            <LoadTagPrintButton
+                              orderNumber={order.orderNumber}
+                              loadNumber={load.loadNumber}
+                              numberOfLoads={order.numberOfLoads}
+                              className={btnClass}
+                            />
                           );
                         })()}
                       </div>
