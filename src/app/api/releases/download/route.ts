@@ -30,5 +30,16 @@ export async function GET(request: Request) {
   });
   if (!release) return NextResponse.json({ error: "Release not found" }, { status: 404 });
 
-  return NextResponse.redirect(release.blobUrl, { status: 302 });
+  const blob = await fetch(release.blobUrl, {
+    headers: { Authorization: `Bearer ${process.env.BLOB_READ_WRITE_TOKEN}` },
+  });
+  if (!blob.ok) return NextResponse.json({ error: "Failed to fetch APK" }, { status: 502 });
+
+  return new Response(blob.body, {
+    headers: {
+      "Content-Type": "application/vnd.android.package-archive",
+      "Content-Disposition": `attachment; filename="${release.fileName}"`,
+      ...(blob.headers.get("Content-Length") ? { "Content-Length": blob.headers.get("Content-Length")! } : {}),
+    },
+  });
 }
