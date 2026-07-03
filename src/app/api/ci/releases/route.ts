@@ -15,20 +15,23 @@ export async function POST(request: Request) {
     blobUrl?: string;
     size?: number;
     notes?: string;
+    env?: string;
   };
 
-  const { version, versionCode, fileName, blobUrl, size, notes } = body;
+  const { version, versionCode, fileName, blobUrl, size, notes, env } = body;
   if (!version || versionCode == null || !fileName || !blobUrl || size == null) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
+  const releaseEnv = env === "dev" ? "dev" : "prod";
 
   try {
     await prisma.appRelease.create({
-      data: { version, versionCode, fileName, blobUrl, size, notes: notes ?? null, uploadedBy: "ci" },
+      data: { version, versionCode, fileName, blobUrl, size, notes: notes ?? null, uploadedBy: "ci", env: releaseEnv },
     });
 
-    // Enforce 2-release cap
+    // Enforce 2-release cap per env
     const old = await prisma.appRelease.findMany({
+      where: { env: releaseEnv },
       orderBy: { uploadedAt: "desc" },
       skip: 2,
     });

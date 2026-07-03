@@ -288,8 +288,10 @@ model AppRelease {
   blobUrl     String   @map("blob_url")
   size        Int      // bytes
   notes       String?
+  env         String   @default("prod") // "prod" | "dev"
   uploadedAt  DateTime @default(now()) @map("uploaded_at")
   uploadedBy  String   @map("uploaded_by") // "ci" or userId
 
   @@index([uploadedAt])
+  @@index([env, uploadedAt])
 }

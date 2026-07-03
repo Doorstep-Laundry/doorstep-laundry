@@ -13,7 +13,9 @@ export async function GET(request: Request) {
   const driver = await getDriverSession(request);
   if (!driver) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const appEnv = process.env.APP_ENV === "dev" ? "dev" : "prod";
   const release = await prisma.appRelease.findFirst({
+    where: { env: appEnv },
     orderBy: { uploadedAt: "desc" },
     select: { id: true },
   });
